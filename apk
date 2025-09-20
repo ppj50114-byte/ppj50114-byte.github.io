@@ -2,39 +2,16 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <title>团队专属下载通道</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f6f8fa;
-      text-align: center;
-      padding: 40px;
-      color: #333;
-    }
-    h1 {
-      color: #222;
-      margin-bottom: 10px;
-    }
-    p {
-      margin: 5px 0 20px;
-      color: #555;
-    }
-    .btn {
-      display: inline-block;
-      margin: 10px;
-      padding: 14px 26px;
-      font-size: 16px;
-      border-radius: 8px;
-      text-decoration: none;
-      background: #0366d6;
-      color: #fff;
-      transition: 0.3s;
-    }
-    .btn:hover {
-      background: #024ea4;
-    }
-    .qr-container {
+  <title>APK 下载</title>
+</head>
+<body style="text-align:center; margin-top:50px;">
+  <h1>专属APK下载</h1>
+  <p>点击下面按钮下载最新版本</p>
+  <a href="APK/com.okinc.okex.gp.apk" download>
+    <button style="padding:10px 20px; font-size:16px;">下载APK</button>
+  </a>
+</body>
+</html>    .qr-container {
       margin-top: 40px;
     }
     .qr-container img {
