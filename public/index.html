@@ -10,11 +10,11 @@
   .glass { background: rgba(255,255,255,0.7); backdrop-filter: blur(6px); }
   .max-preview { max-height: 70vh; max-width: 90vw; }
   .sync-ind { position: fixed; left: 16px; bottom: 16px; font-weight:600; }
+  .hidden { display:none; }
 </style>
 </head>
 <body class="bg-gradient-to-br from-gray-900 via-indigo-900 to-purple-900 min-h-screen text-gray-100">
   <div class="container mx-auto p-6">
-    <!-- Header -->
     <div class="flex items-center justify-between mb-6">
       <div>
         <h1 class="text-3xl font-extrabold tracking-tight">云善绘 — 团队新闻空间</h1>
@@ -23,9 +23,7 @@
       <div id="userBox" class="text-right"></div>
     </div>
 
-    <!-- Main -->
     <div id="root" class="glass p-6 rounded-2xl shadow-2xl">
-      <!-- Login card -->
       <div id="loginCard" class="max-w-xl mx-auto">
         <div class="p-6 bg-white rounded-xl text-gray-900">
           <h2 class="text-xl font-bold mb-3">欢迎 — 请先登录</h2>
@@ -47,19 +45,15 @@
         </div>
       </div>
 
-      <!-- App content -->
       <div id="app" class="hidden">
-        <!-- top nav -->
         <div class="grid grid-cols-3 gap-4 mb-4">
           <button class="tab p-4 bg-indigo-800 rounded" data-tab="news">云善绘新闻</button>
           <button class="tab p-4 bg-indigo-700 rounded" data-tab="media">视频和照片</button>
           <button class="tab p-4 bg-indigo-700 rounded" data-tab="wishes">愿望池</button>
         </div>
 
-        <!-- content area -->
         <div id="contentArea" class="min-h-[400px]"></div>
 
-        <!-- upload panel (admin) -->
         <div id="adminPanel" class="mt-6 p-4 bg-gray-800 rounded hidden">
           <h3 class="font-bold mb-2">管理员上传与管理</h3>
           <div class="grid grid-cols-3 gap-4">
@@ -87,7 +81,6 @@
       </div>
     </div>
 
-    <!-- preview modal -->
     <div id="previewModal" class="fixed inset-0 hidden items-center justify-center bg-black bg-opacity-60">
       <div class="bg-white rounded p-4 max-w-4xl w-full">
         <div class="flex justify-between items-center mb-2">
@@ -98,7 +91,6 @@
       </div>
     </div>
 
-    <!-- sync status -->
     <div id="sync" class="sync-ind text-sm">🟡 正在同步...</div>
   </div>
 
@@ -123,9 +115,9 @@ async function api(path, opts){
     showSync('syncing');
     const res = await fetch(path, opts);
     if(!res.ok) { showSync('failed'); return null; }
-    const data = await res.json();
-    showSync('ok');
-    return data;
+    // try parse json safely
+    const txt = await res.text();
+    try { const data = JSON.parse(txt); showSync('ok'); return data; } catch(e){ showSync('failed'); return null; }
   }catch(e){
     showSync('failed');
     return null;
@@ -138,9 +130,9 @@ function validateChinese(name){
 
 document.addEventListener('DOMContentLoaded', ()=>{
 
-  // login interactions
   const nameInput = el('nameInput');
   const pwdRow = el('passwordRow');
+
   nameInput.addEventListener('input', ()=>{
     const v = nameInput.value.trim();
     if(v === ADMIN_NAME) pwdRow.classList.remove('hidden');
@@ -157,14 +149,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ name, password: pwd })
     });
-    if(!res){ alert('登录失败'); return; }
+    if(!res){ alert('登录失败（请检查后端 /network）'); return; }
     if(!res.success){ if(res.msg) alert(res.msg); return; }
     role = res.role;
     meName = name;
     enterApp();
   });
 
-  // enter app
   window.enterApp = () => {
     el('loginCard').classList.add('hidden');
     el('app').classList.remove('hidden');
@@ -175,7 +166,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     startPolling();
   };
 
-  // tabs
   function setupTabs(){
     document.querySelectorAll('.tab').forEach(b=>{
       b.addEventListener('click', ()=>{
@@ -185,11 +175,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
         renderContent();
       });
     });
-    // default select first
     document.querySelector('.tab[data-tab="'+currentTab+'"]').click();
   }
 
-  // posting news (admin)
   el('postNews').addEventListener('click', async ()=>{
     const title = el('newsTitle').value.trim();
     const content = el('newsContent').value.trim();
@@ -199,7 +187,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(res && res.success){ alert('发布成功'); renderContent(); }
   });
 
-  // upload file (admin)
   el('uploadBtn').addEventListener('click', ()=>{
     const f = el('fileInput').files[0];
     if(!f) return alert('请选择文件');
@@ -226,13 +213,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
     xhr.send(fd);
   });
 
-  // polling
   async function pollOnce(){
     const data = await api('/data');
-    if(data) {
-      window.latestData = data;
-      renderContent();
-    }
+    if(data) { window.latestData = data; renderContent(); }
   }
   window.startPolling = ()=>{
     if(pollTimer) clearInterval(pollTimer);
@@ -240,7 +223,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     pollTimer = setInterval(pollOnce, POLL_INTERVAL);
   };
 
-  // render content
   function renderContent(){
     const data = window.latestData || { news:[], media:[], wishes:[] };
     const area = el('contentArea');
@@ -257,7 +239,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
           img.onclick = ()=>openPreview(n.title, '<img src="'+n.image+'" class="max-preview" />');
           card.appendChild(img);
         }
-        // comments
         const comWrap = document.createElement('div');
         comWrap.className = 'mt-2 text-sm text-gray-400';
         comWrap.innerHTML = '<div>👍 '+(n.likes||0)+' <button class="like" data-id="'+n.id+'" data-type="news">点赞</button></div>';
@@ -278,17 +259,27 @@ document.addEventListener('DOMContentLoaded', ()=>{
         const wrap = document.createElement('div');
         wrap.className = 'p-2 bg-gray-900 rounded';
         if(m.type === 'image'){
-          wrap.innerHTML = '<img src="'+m.filename+'" class="cursor-pointer max-preview" onclick="openPreview('+JSON.stringify(m.originalName)+', \\'<img src='+m.filename+' class=\\'max-preview\\' />\\')"/>';
+          const img = document.createElement('img');
+          img.src = m.filename;
+          img.className = 'cursor-pointer max-preview';
+          img.onclick = ()=>openPreview(m.originalName || '图片', '<img src="'+m.filename+'" class="max-preview" />');
+          wrap.appendChild(img);
         } else {
-          wrap.innerHTML = '<video controls class="w-full max-h-60 cursor-pointer"><source src="'+m.filename+'"/></video>';
+          const vid = document.createElement('video');
+          vid.controls = true;
+          vid.className = 'w-full max-h-60 cursor-pointer';
+          const src = document.createElement('source'); src.src = m.filename;
+          vid.appendChild(src);
+          wrap.appendChild(vid);
         }
-        if(role==='admin') wrap.innerHTML += '<div class="mt-2"><button class="del media" data-id="'+m.id+'">删除</button></div>';
+        if(role==='admin') {
+          const delDiv = document.createElement('div'); delDiv.className='mt-2'; delDiv.innerHTML = '<button class="del media" data-id="'+m.id+'">删除</button>'; wrap.appendChild(delDiv);
+        }
         area.querySelector('.grid')?.appendChild(wrap);
       });
       area.innerHTML += '</div>';
     } else if(currentTab === 'wishes'){
       area.innerHTML = '';
-      // form to add wish
       const form = document.createElement('div');
       form.className='p-3 bg-gray-900 rounded mb-3';
       form.innerHTML = '<div class="mb-2">以 <strong>'+escapeHtml(meName||'匿名')+'</strong> 许愿</div><textarea id="wishText" class="w-full p-2 rounded text-gray-900" placeholder="写下你的愿望..."></textarea><div class="mt-2"><button id="postWish" class="px-3 py-2 bg-indigo-600 rounded">发表愿望</button></div>';
@@ -298,7 +289,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
         c.innerHTML = '<div class="flex justify-between"><div><strong>'+escapeHtml(w.name || '匿名')+'</strong><div class="text-sm text-gray-400">'+(new Date(w.date)).toLocaleString()+'</div></div>' + (role==='admin'?'<button class="del wish" data-id="'+w.id+'">删除</button>':'') + '</div><p class="mt-2">'+escapeHtml(w.text)+'</p><div class="mt-2">👍 '+(w.likes||0)+' <button class="like" data-id="'+w.id+'" data-type="wishes">点赞</button></div>';
         area.appendChild(c);
       });
-      // attach post wish
       setTimeout(()=>{ el('postWish').addEventListener('click', async ()=>{
         const t = el('wishText').value.trim(); if(!t) return alert('请输入内容');
         const res = await api('/wish', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name: meName, text: t }) });
@@ -311,7 +301,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
       b.addEventListener('click', async ()=>{
         if(!confirm('确认删除？')) return;
         const id = b.dataset.id;
-        const cls = b.classList.contains('news')? '/news/':'';
         if(b.classList.contains('news')) await api('/news/'+id, { method:'DELETE' });
         if(b.classList.contains('media')) await api('/media/'+id, { method:'DELETE' });
         if(b.classList.contains('wish')) await api('/wish/'+id, { method:'DELETE' });
@@ -319,7 +308,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       });
     });
 
-    // attach like handlers
+    // like handlers
     document.querySelectorAll('.like').forEach(b=>{
       b.addEventListener('click', async ()=>{
         const id = b.dataset.id, type = b.dataset.type;
@@ -328,7 +317,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       });
     });
 
-    // attach add comment
+    // add comments
     document.querySelectorAll('.addc').forEach(btn=>{
       btn.addEventListener('click', async ()=>{
         const parent = btn.parentElement;
@@ -342,7 +331,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     });
   }
 
-  // preview modal
   window.openPreview = (title, html) => {
     el('previewTitle').textContent = title;
     el('previewBody').innerHTML = html;
@@ -351,7 +339,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
   };
   el('closePreview').addEventListener('click', ()=>{ el('previewModal').classList.add('hidden'); el('previewModal').classList.remove('flex'); });
 
-  // escape
   function escapeHtml(s){ if(!s) return ''; return s.toString().replace(/[&<>"']/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]); }); }
 
 });
