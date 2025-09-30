@@ -1,26 +1,360 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>团队新闻空间</title>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>云善绘 团队空间</title>
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+<style>
+  body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
+  .glass { background: rgba(255,255,255,0.7); backdrop-filter: blur(6px); }
+  .max-preview { max-height: 70vh; max-width: 90vw; }
+  .sync-ind { position: fixed; left: 16px; bottom: 16px; font-weight:600; }
+</style>
 </head>
-<body class="bg-gray-100 text-gray-800">
+<body class="bg-gradient-to-br from-gray-900 via-indigo-900 to-purple-900 min-h-screen text-gray-100">
   <div class="container mx-auto p-6">
-    <h1 class="text-3xl font-bold mb-4">团队新闻空间</h1>
-    <p class="mb-6">这是一个现代化的新闻、媒体、愿望池展示页面。</p>
-    <div id="content" class="grid gap-4"></div>
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-3xl font-extrabold tracking-tight">云善绘 — 团队新闻空间</h1>
+        <p class="text-sm text-gray-300">现代 · 实时 · 协作</p>
+      </div>
+      <div id="userBox" class="text-right"></div>
+    </div>
+
+    <!-- Main -->
+    <div id="root" class="glass p-6 rounded-2xl shadow-2xl">
+      <!-- Login card -->
+      <div id="loginCard" class="max-w-xl mx-auto">
+        <div class="p-6 bg-white rounded-xl text-gray-900">
+          <h2 class="text-xl font-bold mb-3">欢迎 — 请先登录</h2>
+          <p class="text-sm text-gray-600 mb-4">客户请输入中文名字（至少两个字）。若为管理员，请输入管理员名字，随后将出现密码框。</p>
+          <div class="mb-3">
+            <label class="text-sm">姓名</label>
+            <input id="nameInput" class="w-full mt-1 p-2 border rounded" placeholder="请输入中文姓名（例如：张三）" />
+            <p id="nameErr" class="text-red-600 text-sm mt-1 hidden"></p>
+          </div>
+          <div id="passwordRow" class="mb-3 hidden">
+            <label class="text-sm">管理员密码</label>
+            <input id="pwdInput" type="password" class="w-full mt-1 p-2 border rounded" placeholder="管理员密码" />
+            <p id="pwdErr" class="text-red-600 text-sm mt-1 hidden"></p>
+          </div>
+          <div class="flex items-center justify-between mt-4">
+            <button id="loginBtn" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-500">登录</button>
+            <div class="text-sm text-gray-500">或以游客身份查看</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- App content -->
+      <div id="app" class="hidden">
+        <!-- top nav -->
+        <div class="grid grid-cols-3 gap-4 mb-4">
+          <button class="tab p-4 bg-indigo-800 rounded" data-tab="news">云善绘新闻</button>
+          <button class="tab p-4 bg-indigo-700 rounded" data-tab="media">视频和照片</button>
+          <button class="tab p-4 bg-indigo-700 rounded" data-tab="wishes">愿望池</button>
+        </div>
+
+        <!-- content area -->
+        <div id="contentArea" class="min-h-[400px]"></div>
+
+        <!-- upload panel (admin) -->
+        <div id="adminPanel" class="mt-6 p-4 bg-gray-800 rounded hidden">
+          <h3 class="font-bold mb-2">管理员上传与管理</h3>
+          <div class="grid grid-cols-3 gap-4">
+            <div>
+              <h4 class="font-semibold">发布新闻</h4>
+              <input id="newsTitle" class="w-full mt-1 p-2 rounded text-gray-900" placeholder="标题" />
+              <textarea id="newsContent" class="w-full mt-2 p-2 rounded text-gray-900" placeholder="正文（可插入图片链接）"></textarea>
+              <input id="newsImg" class="w-full mt-2 p-2 rounded text-gray-900" placeholder="图片链接（可选）" />
+              <button id="postNews" class="mt-2 px-3 py-2 bg-green-600 rounded">发布新闻</button>
+            </div>
+            <div>
+              <h4 class="font-semibold">上传照片/视频</h4>
+              <input id="fileInput" type="file" class="mt-1" />
+              <div id="uploadProgress" class="w-full bg-gray-700 rounded mt-2 hidden">
+                <div id="uploadBar" class="h-3 bg-green-400 rounded" style="width:0%"></div>
+              </div>
+              <button id="uploadBtn" class="mt-2 px-3 py-2 bg-blue-600 rounded">上传</button>
+            </div>
+            <div>
+              <h4 class="font-semibold">管理愿望池</h4>
+              <p class="text-sm text-gray-300">可删除不当愿望</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- preview modal -->
+    <div id="previewModal" class="fixed inset-0 hidden items-center justify-center bg-black bg-opacity-60">
+      <div class="bg-white rounded p-4 max-w-4xl w-full">
+        <div class="flex justify-between items-center mb-2">
+          <h3 id="previewTitle" class="font-bold text-lg"></h3>
+          <button id="closePreview" class="text-gray-600">关闭</button>
+        </div>
+        <div id="previewBody" class="text-gray-900"></div>
+      </div>
+    </div>
+
+    <!-- sync status -->
+    <div id="sync" class="sync-ind text-sm">🟡 正在同步...</div>
   </div>
-  <script>
-    fetch('/data').then(res => res.json()).then(data => {
-      const content = document.getElementById('content');
-      content.innerHTML = `
-        <div><h2 class="text-xl font-semibold">新闻</h2><pre>${JSON.stringify(data.news, null, 2)}</pre></div>
-        <div><h2 class="text-xl font-semibold">媒体</h2><pre>${JSON.stringify(data.media, null, 2)}</pre></div>
-        <div><h2 class="text-xl font-semibold">许愿池</h2><pre>${JSON.stringify(data.wishes, null, 2)}</pre></div>
-      `;
+
+<script>
+const ADMIN_NAME = '管理员';
+const POLL_INTERVAL = 3000;
+let role = null;
+let meName = '';
+let currentTab = 'news';
+let pollTimer = null;
+
+function el(id){ return document.getElementById(id); }
+function showSync(status){
+  const s = el('sync');
+  if(status === 'ok') s.textContent = '🟢 已同步 → 正常';
+  else if(status === 'syncing') s.textContent = '🟡 正在同步...';
+  else s.textContent = '🔴 同步失败 → 网络异常';
+}
+
+async function api(path, opts){
+  try{
+    showSync('syncing');
+    const res = await fetch(path, opts);
+    if(!res.ok) { showSync('failed'); return null; }
+    const data = await res.json();
+    showSync('ok');
+    return data;
+  }catch(e){
+    showSync('failed');
+    return null;
+  }
+}
+
+function validateChinese(name){
+  return /^[\u4e00-\u9fa5]{2,}$/.test(name);
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+
+  // login interactions
+  const nameInput = el('nameInput');
+  const pwdRow = el('passwordRow');
+  nameInput.addEventListener('input', ()=>{
+    const v = nameInput.value.trim();
+    if(v === ADMIN_NAME) pwdRow.classList.remove('hidden');
+    else pwdRow.classList.add('hidden');
+  });
+
+  el('loginBtn').addEventListener('click', async ()=>{
+    const name = nameInput.value.trim();
+    const pwd = el('pwdInput').value;
+    el('nameErr').classList.add('hidden');
+    el('pwdErr').classList.add('hidden');
+    if(!validateChinese(name)){ el('nameErr').textContent='姓名须为中文且至少2个字'; el('nameErr').classList.remove('hidden'); return; }
+    const res = await api('/login', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ name, password: pwd })
     });
-  </script>
+    if(!res){ alert('登录失败'); return; }
+    if(!res.success){ if(res.msg) alert(res.msg); return; }
+    role = res.role;
+    meName = name;
+    enterApp();
+  });
+
+  // enter app
+  window.enterApp = () => {
+    el('loginCard').classList.add('hidden');
+    el('app').classList.remove('hidden');
+    el('userBox').innerHTML = '<div>当前：<strong>'+meName+'</strong> （'+(role||'user')+'） <button id="logoutBtn" class="ml-2 px-2 py-1 bg-gray-800 rounded">登出</button></div>';
+    el('logoutBtn').addEventListener('click', ()=>location.reload());
+    if(role === 'admin') el('adminPanel').classList.remove('hidden');
+    setupTabs();
+    startPolling();
+  };
+
+  // tabs
+  function setupTabs(){
+    document.querySelectorAll('.tab').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        document.querySelectorAll('.tab').forEach(x=>x.classList.remove('ring-4','ring-indigo-400'));
+        b.classList.add('ring-4','ring-indigo-400');
+        currentTab = b.dataset.tab;
+        renderContent();
+      });
+    });
+    // default select first
+    document.querySelector('.tab[data-tab="'+currentTab+'"]').click();
+  }
+
+  // posting news (admin)
+  el('postNews').addEventListener('click', async ()=>{
+    const title = el('newsTitle').value.trim();
+    const content = el('newsContent').value.trim();
+    const image = el('newsImg').value.trim() || null;
+    if(!title) return alert('请输入标题');
+    const res = await api('/news', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ title, content, image }) });
+    if(res && res.success){ alert('发布成功'); renderContent(); }
+  });
+
+  // upload file (admin)
+  el('uploadBtn').addEventListener('click', ()=>{
+    const f = el('fileInput').files[0];
+    if(!f) return alert('请选择文件');
+    if(f.size > 300*1024*1024) return alert('文件超过300MB上限');
+    const fd = new FormData();
+    fd.append('file', f);
+    fd.append('type', f.type.startsWith('video') ? 'video' : 'image');
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/upload');
+    el('uploadProgress').classList.remove('hidden');
+    xhr.upload.onprogress = (e)=>{
+      if(e.lengthComputable){
+        const p = Math.round(e.loaded / e.total * 100);
+        el('uploadBar').style.width = p + '%';
+      }
+    };
+    xhr.onload = ()=>{
+      el('uploadBar').style.width = '0%';
+      el('uploadProgress').classList.add('hidden');
+      if(xhr.status === 200) { alert('上传成功'); renderContent(); }
+      else alert('上传失败');
+    };
+    xhr.onerror = ()=>{ alert('上传出错'); el('uploadProgress').classList.add('hidden'); };
+    xhr.send(fd);
+  });
+
+  // polling
+  async function pollOnce(){
+    const data = await api('/data');
+    if(data) {
+      window.latestData = data;
+      renderContent();
+    }
+  }
+  window.startPolling = ()=>{
+    if(pollTimer) clearInterval(pollTimer);
+    pollOnce();
+    pollTimer = setInterval(pollOnce, POLL_INTERVAL);
+  };
+
+  // render content
+  function renderContent(){
+    const data = window.latestData || { news:[], media:[], wishes:[] };
+    const area = el('contentArea');
+    if(currentTab === 'news'){
+      area.innerHTML = '';
+      data.news.forEach(n=>{
+        const card = document.createElement('div');
+        card.className = 'p-4 bg-gray-900 rounded mb-3';
+        card.innerHTML = '<div class="flex justify-between"><div><h3 class="font-bold text-lg">'+escapeHtml(n.title)+'</h3><div class="text-sm text-gray-400">'+(new Date(n.date)).toLocaleString()+'</div></div>'+ (role==='admin'?'<button class="del news" data-id="'+n.id+'">删除</button>':'') +'</div><p class="mt-2">'+escapeHtml(n.content||'')+'</p>';
+        if(n.image) {
+          const img = document.createElement('img');
+          img.src = n.image;
+          img.className = 'mt-2 max-preview cursor-pointer';
+          img.onclick = ()=>openPreview(n.title, '<img src="'+n.image+'" class="max-preview" />');
+          card.appendChild(img);
+        }
+        // comments
+        const comWrap = document.createElement('div');
+        comWrap.className = 'mt-2 text-sm text-gray-400';
+        comWrap.innerHTML = '<div>👍 '+(n.likes||0)+' <button class="like" data-id="'+n.id+'" data-type="news">点赞</button></div>';
+        if(n.comments && n.comments.length){
+          n.comments.forEach(c=>{
+            const p = document.createElement('div'); p.className='mt-1'; p.textContent = c.name+': '+c.text; comWrap.appendChild(p);
+          });
+        }
+        const addC = document.createElement('div'); addC.className='mt-2';
+        addC.innerHTML = '<input class="commentInput p-1 rounded text-gray-900" placeholder="评论..." data-id="'+n.id+'" data-type="news" /> <button class="addc px-2 py-1 bg-green-600 rounded">发表</button>';
+        comWrap.appendChild(addC);
+        card.appendChild(comWrap);
+        area.appendChild(card);
+      });
+    } else if(currentTab === 'media'){
+      area.innerHTML = '<div class="grid grid-cols-3 gap-4">';
+      (data.media||[]).forEach(m=>{
+        const wrap = document.createElement('div');
+        wrap.className = 'p-2 bg-gray-900 rounded';
+        if(m.type === 'image'){
+          wrap.innerHTML = '<img src="'+m.filename+'" class="cursor-pointer max-preview" onclick="openPreview('+JSON.stringify(m.originalName)+', \\'<img src='+m.filename+' class=\\'max-preview\\' />\\')"/>';
+        } else {
+          wrap.innerHTML = '<video controls class="w-full max-h-60 cursor-pointer"><source src="'+m.filename+'"/></video>';
+        }
+        if(role==='admin') wrap.innerHTML += '<div class="mt-2"><button class="del media" data-id="'+m.id+'">删除</button></div>';
+        area.querySelector('.grid')?.appendChild(wrap);
+      });
+      area.innerHTML += '</div>';
+    } else if(currentTab === 'wishes'){
+      area.innerHTML = '';
+      // form to add wish
+      const form = document.createElement('div');
+      form.className='p-3 bg-gray-900 rounded mb-3';
+      form.innerHTML = '<div class="mb-2">以 <strong>'+escapeHtml(meName||'匿名')+'</strong> 许愿</div><textarea id="wishText" class="w-full p-2 rounded text-gray-900" placeholder="写下你的愿望..."></textarea><div class="mt-2"><button id="postWish" class="px-3 py-2 bg-indigo-600 rounded">发表愿望</button></div>';
+      area.appendChild(form);
+      (data.wishes||[]).forEach(w=>{
+        const c = document.createElement('div'); c.className='p-3 bg-gray-900 rounded mb-2';
+        c.innerHTML = '<div class="flex justify-between"><div><strong>'+escapeHtml(w.name || '匿名')+'</strong><div class="text-sm text-gray-400">'+(new Date(w.date)).toLocaleString()+'</div></div>' + (role==='admin'?'<button class="del wish" data-id="'+w.id+'">删除</button>':'') + '</div><p class="mt-2">'+escapeHtml(w.text)+'</p><div class="mt-2">👍 '+(w.likes||0)+' <button class="like" data-id="'+w.id+'" data-type="wishes">点赞</button></div>';
+        area.appendChild(c);
+      });
+      // attach post wish
+      setTimeout(()=>{ el('postWish').addEventListener('click', async ()=>{
+        const t = el('wishText').value.trim(); if(!t) return alert('请输入内容');
+        const res = await api('/wish', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name: meName, text: t }) });
+        if(res && res.success){ el('wishText').value=''; renderContent(); }
+      }); }, 20);
+    }
+
+    // attach delete handlers
+    document.querySelectorAll('.del').forEach(b=>{
+      b.addEventListener('click', async ()=>{
+        if(!confirm('确认删除？')) return;
+        const id = b.dataset.id;
+        const cls = b.classList.contains('news')? '/news/':'';
+        if(b.classList.contains('news')) await api('/news/'+id, { method:'DELETE' });
+        if(b.classList.contains('media')) await api('/media/'+id, { method:'DELETE' });
+        if(b.classList.contains('wish')) await api('/wish/'+id, { method:'DELETE' });
+        renderContent();
+      });
+    });
+
+    // attach like handlers
+    document.querySelectorAll('.like').forEach(b=>{
+      b.addEventListener('click', async ()=>{
+        const id = b.dataset.id, type = b.dataset.type;
+        await api('/like', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ type, id }) });
+        renderContent();
+      });
+    });
+
+    // attach add comment
+    document.querySelectorAll('.addc').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const parent = btn.parentElement;
+        const input = parent.querySelector('.commentInput');
+        const id = input.dataset.id, type = input.dataset.type;
+        const text = input.value.trim();
+        if(!text) return;
+        await api('/comment', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ type, id, name: meName, text }) });
+        renderContent();
+      });
+    });
+  }
+
+  // preview modal
+  window.openPreview = (title, html) => {
+    el('previewTitle').textContent = title;
+    el('previewBody').innerHTML = html;
+    el('previewModal').classList.remove('hidden');
+    el('previewModal').classList.add('flex');
+  };
+  el('closePreview').addEventListener('click', ()=>{ el('previewModal').classList.add('hidden'); el('previewModal').classList.remove('flex'); });
+
+  // escape
+  function escapeHtml(s){ if(!s) return ''; return s.toString().replace(/[&<>"']/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]); }); }
+
+});
+</script>
 </body>
 </html>
