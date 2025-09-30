@@ -1,1 +1,26 @@
-
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>团队新闻空间</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 text-gray-800">
+  <div class="container mx-auto p-6">
+    <h1 class="text-3xl font-bold mb-4">团队新闻空间</h1>
+    <p class="mb-6">这是一个现代化的新闻、媒体、愿望池展示页面。</p>
+    <div id="content" class="grid gap-4"></div>
+  </div>
+  <script>
+    fetch('/data').then(res => res.json()).then(data => {
+      const content = document.getElementById('content');
+      content.innerHTML = `
+        <div><h2 class="text-xl font-semibold">新闻</h2><pre>${JSON.stringify(data.news, null, 2)}</pre></div>
+        <div><h2 class="text-xl font-semibold">媒体</h2><pre>${JSON.stringify(data.media, null, 2)}</pre></div>
+        <div><h2 class="text-xl font-semibold">许愿池</h2><pre>${JSON.stringify(data.wishes, null, 2)}</pre></div>
+      `;
+    });
+  </script>
+</body>
+</html>
