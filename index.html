@@ -12,8 +12,11 @@
 </style>
 </head>
 <body class="bg-gradient-to-br from-gray-900 via-purple-900 to-indigo-900 text-gray-100 min-h-screen flex items-center justify-center">
-  <div class="w-full max-w-4xl p-6 glass rounded-2xl shadow-xl">
-    <h1 class="text-3xl font-extrabold mb-6 text-center">🌌 云善绘 团队空间</h1>
+  <div class="w-full max-w-5xl p-6 glass rounded-2xl shadow-xl">
+    <div class="flex items-center justify-center mb-6 space-x-2">
+      <img src="/logo.png" alt="Logo" class="w-12 h-12 rounded" />
+      <h1 class="text-3xl font-extrabold">云善绘 团队空间</h1>
+    </div>
 
     <!-- 登录界面 -->
     <div id="loginBox" class="text-center">
@@ -61,6 +64,7 @@
 <script>
 const socket = io();
 let meName=null; let role='user';
+let currentTab='news';
 
 const nameInput=document.getElementById('nameInput');
 const pwdInput=document.getElementById('pwdInput');
@@ -90,9 +94,50 @@ loginBtn.onclick=async()=>{
   } else alert(data.msg||'登录失败');
 };
 
+// 渲染函数
+function renderData(d){
+  let html='';
+  if(currentTab==='news'){
+    d.news.forEach(n=>{
+      html+=`<div class="p-3 bg-gray-800 rounded">
+        <h4 class="font-bold">${n.title}</h4>
+        <p>${n.content}</p>
+        ${n.image?`<img src="${n.image}" class="mt-2 max-h-60"/>`:''}
+        <div class="text-sm text-gray-400">👍 ${n.likes||0}</div>
+      </div>`;
+    });
+  } else if(currentTab==='photos'){
+    html+='<div class="grid grid-cols-3 gap-2">';
+    d.media.filter(m=>m.type==='image').forEach(m=>{
+      html+=`<div class="relative"><img src="${m.filename}" class="rounded"/><div class="text-xs text-gray-300">👍 ${m.likes||0}</div></div>`;
+    });
+    html+='</div>';
+  } else if(currentTab==='videos'){
+    html+='<div class="grid grid-cols-2 gap-2">';
+    d.media.filter(m=>m.type==='video').forEach(m=>{
+      html+=`<div><video controls src="${m.filename}" class="w-full rounded"></video><div class="text-xs text-gray-300">👍 ${m.likes||0}</div></div>`;
+    });
+    html+='</div>';
+  } else if(currentTab==='wishes'){
+    d.wishes.forEach(w=>{
+      html+=`<div class="p-3 bg-gray-800 rounded"><p>${w.text}</p><div class="text-sm text-gray-400">${w.name} 👍 ${w.likes||0}</div></div>`;
+    });
+  }
+  document.getElementById('contentArea').innerHTML=html||'<p class="text-gray-400">暂无数据</p>';
+}
+
+// Tab 切换
+document.querySelectorAll('.tab').forEach(btn=>{
+  btn.onclick=()=>{
+    currentTab=btn.dataset.tab;
+    renderData(window.currentData||{news:[],media:[],wishes:[]});
+  }
+});
+
 // 更新数据
 socket.on('update', d=>{
-  document.getElementById('contentArea').innerHTML='<pre>'+JSON.stringify(d,null,2)+'</pre>';
+  window.currentData=d;
+  renderData(d);
 });
 socket.on('onlineUsers', list=>{
   document.getElementById('onlineInfo').innerText='在线: '+list.length+'人: '+list.join(',');
