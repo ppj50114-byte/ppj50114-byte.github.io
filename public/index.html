@@ -3,182 +3,66 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>云善绘 团队空间 — 实时版</title>
+<title>云善绘 团队空间</title>
 <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-<style>
-  body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
-  .glass { background: rgba(255,255,255,0.06); backdrop-filter: blur(6px); }
-  .max-preview { max-height: 70vh; max-width: 90vw; }
-  .sync-ind { position: fixed; left: 16px; bottom: 16px; font-weight:600; }
-  .hidden { display:none; }
-</style>
 </head>
-<body class="bg-gradient-to-br from-gray-900 via-indigo-900 to-purple-900 min-h-screen text-gray-100">
-  <div class="container mx-auto p-6">
-    <div class="flex items-center justify-between mb-6">
-      <div>
-        <h1 class="text-3xl font-extrabold tracking-tight">云善绘 — 实时团队空间</h1>
-        <p class="text-sm text-gray-300">基于 WebSocket 的实时同步</p>
-      </div>
-      <div id="userBox" class="text-right"></div>
+<body class="bg-gray-900 text-white">
+  <div class="p-6">
+    <h1 class="text-3xl font-bold mb-4">云善绘 团队空间</h1>
+    <div id="loginBox" class="mb-4">
+      <input id="nameInput" placeholder="姓名(中文)" class="p-2 text-black" />
+      <input id="pwdInput" type="password" placeholder="管理员密码" class="p-2 text-black hidden" />
+      <button id="loginBtn" class="px-3 py-2 bg-indigo-600 rounded">登录</button>
     </div>
-
-    <div id="root" class="glass p-6 rounded-2xl shadow-2xl">
-      <div id="loginCard" class="max-w-xl mx-auto">
-        <div class="p-6 bg-white rounded-xl text-gray-900">
-          <h2 class="text-xl font-bold mb-3">欢迎 — 请先登录</h2>
-          <p class="text-sm text-gray-600 mb-4">客户请输入中文名字（至少两个字）。若为管理员，请输入管理员名字，随后将出现密码框。</p>
-          <div class="mb-3">
-            <label class="text-sm">姓名</label>
-            <input id="nameInput" class="w-full mt-1 p-2 border rounded" placeholder="请输入中文姓名（例如：张三）" />
-            <p id="nameErr" class="text-red-600 text-sm mt-1 hidden"></p>
-          </div>
-          <div id="passwordRow" class="mb-3 hidden">
-            <label class="text-sm">管理员密码</label>
-            <input id="pwdInput" type="password" class="w-full mt-1 p-2 border rounded" placeholder="管理员密码" />
-            <p id="pwdErr" class="text-red-600 text-sm mt-1 hidden"></p>
-          </div>
-          <div class="flex items-center justify-between mt-4">
-            <button id="loginBtn" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-500">登录</button>
-            <div class="text-sm text-gray-500">或以游客身份查看</div>
-          </div>
-        </div>
+    <div id="mainApp" class="hidden">
+      <div class="grid grid-cols-4 gap-2 mb-4">
+        <button data-tab="news" class="tab bg-indigo-700 p-2 rounded">新闻</button>
+        <button data-tab="photos" class="tab bg-indigo-700 p-2 rounded">照片</button>
+        <button data-tab="videos" class="tab bg-indigo-700 p-2 rounded">视频</button>
+        <button data-tab="wishes" class="tab bg-indigo-700 p-2 rounded">愿望池</button>
       </div>
-
-      <div id="app" class="hidden">
-        <div class="grid grid-cols-4 gap-4 mb-4">
-          <button class="tab p-4 bg-indigo-800 rounded" data-tab="news">云善绘新闻</button>
-          <button class="tab p-4 bg-indigo-700 rounded" data-tab="photos">照片</button>
-          <button class="tab p-4 bg-indigo-700 rounded" data-tab="videos">视频</button>
-          <button class="tab p-4 bg-indigo-700 rounded" data-tab="wishes">愿望池</button>
+      <div id="contentArea"></div>
+      <div id="adminPanel" class="hidden mt-6 bg-gray-800 p-4 rounded">
+        <h2 class="font-bold">管理员操作</h2>
+        <div class="mb-2">
+          <input id="newsTitle" placeholder="新闻标题" class="p-1 text-black"/>
+          <textarea id="newsContent" placeholder="新闻正文" class="p-1 text-black"></textarea>
+          <input id="newsImageFile" type="file" />
+          <button id="postNews" class="bg-green-600 px-2 py-1 rounded">发布新闻</button>
         </div>
-
-        <div id="contentArea" class="min-h-[400px]"></div>
-
-        <div id="adminPanel" class="mt-6 p-4 bg-gray-800 rounded hidden">
-          <h3 class="font-bold mb-2">管理员上传与管理</h3>
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <h4 class="font-semibold">发布新闻</h4>
-              <input id="newsTitle" class="w-full mt-1 p-2 rounded text-gray-900" placeholder="标题" />
-              <textarea id="newsContent" class="w-full mt-2 p-2 rounded text-gray-900" placeholder="正文"></textarea>
-              <input id="newsImageFile" type="file" class="w-full mt-2" />
-              <button id="postNews" class="mt-2 px-3 py-2 bg-green-600 rounded">发布新闻</button>
-            </div>
-            <div>
-              <h4 class="font-semibold">上传照片/视频</h4>
-              <input id="fileInput" type="file" class="mt-1" />
-              <div id="uploadProgress" class="w-full bg-gray-700 rounded mt-2 hidden">
-                <div id="uploadBar" class="h-3 bg-green-400 rounded" style="width:0%"></div>
-              </div>
-              <button id="uploadBtn" class="mt-2 px-3 py-2 bg-blue-600 rounded">上传</button>
-            </div>
-          </div>
-          <div id="onlineInfo" class="mt-4 text-sm text-gray-300"></div>
+        <div class="mb-2">
+          <input id="fileInput" type="file" />
+          <button id="uploadBtn" class="bg-blue-600 px-2 py-1 rounded">上传照片/视频</button>
         </div>
+        <div id="onlineInfo" class="text-sm text-gray-300"></div>
       </div>
     </div>
-
-    <div id="sync" class="sync-ind text-sm">🔴 未连接</div>
   </div>
-
 <script src="/socket.io/socket.io.js"></script>
 <script>
-const ADMIN_NAME = '管理员';
-let role = null;
-let meName = '';
-let currentTab = 'news';
-let socket = null;
+const socket = io();
+let meName = null; let role='user';
 
-function el(id){ return document.getElementById(id); }
+document.getElementById('loginBtn').onclick = async ()=>{
+  const name = document.getElementById('nameInput').value.trim();
+  const pwd = document.getElementById('pwdInput').value.trim();
+  const res = await fetch('/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,password:pwd})});
+  const data = await res.json();
+  if(data.success){
+    meName = name; role = data.role;
+    document.getElementById('loginBox').classList.add('hidden');
+    document.getElementById('mainApp').classList.remove('hidden');
+    if(role==='admin') document.getElementById('adminPanel').classList.remove('hidden');
+    socket.emit('register', meName);
+  } else alert(data.msg||'登录失败');
+};
 
-function setSync(status){
-  const s = el('sync');
-  if(status === 'ok') s.textContent = '🟢 已连接（实时同步）';
-  else if(status === 'connecting') s.textContent = '🟡 连接中...';
-  else s.textContent = '🔴 未连接';
-}
-
-async function api(path, opts){
-  try{
-    const res = await fetch(path, opts);
-    if(!res.ok) return null;
-    return await res.json();
-  }catch(e){ return null; }
-}
-
-function validateChinese(name){ return /^[\u4e00-\u9fa5]{2,}$/.test(name); }
-
-document.addEventListener('DOMContentLoaded', ()=>{
-  el('loginBtn').addEventListener('click', async ()=>{
-    const name = el('nameInput').value.trim();
-    const pwd = el('pwdInput').value;
-    if(!validateChinese(name)){ alert('姓名须为中文且至少2个字'); return; }
-    const res = await api('/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name, password: pwd }) });
-    if(!res || !res.success){ alert(res?.msg || '登录失败'); return; }
-    role = res.role; meName = name;
-    enterApp(); connectSocket();
-  });
-
-  el('postNews').addEventListener('click', async ()=>{
-    const title = el('newsTitle').value.trim();
-    const content = el('newsContent').value.trim();
-    const file = el('newsImageFile').files[0];
-    if(!title) return alert('请输入标题');
-    let imageUrl = null;
-    if(file){
-      const fd = new FormData(); fd.append('file', file); fd.append('type', 'image');
-      const res = await fetch('/upload', { method:'POST', body: fd });
-      const data = await res.json(); if(data.success) imageUrl = data.item.filename;
-    }
-    const res = await fetch('/news',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ title, content, image:imageUrl })});
-    if(res.ok) alert('发布成功');
-  });
-
-  el('uploadBtn').addEventListener('click', ()=>{
-    const f = el('fileInput').files[0]; if(!f) return alert('请选择文件');
-    const fd = new FormData(); fd.append('file', f); fd.append('type', f.type.startsWith('video')?'video':'image');
-    const xhr = new XMLHttpRequest(); xhr.open('POST','/upload');
-    xhr.onload = ()=>{ alert(xhr.status===200?'上传成功':'上传失败'); };
-    xhr.send(fd);
-  });
+socket.on('update', d=>{
+  document.getElementById('contentArea').innerHTML = '<pre>'+JSON.stringify(d,null,2)+'</pre>';
 });
-
-function enterApp(){
-  el('loginCard').classList.add('hidden');
-  el('app').classList.remove('hidden');
-  el('userBox').innerHTML = '<div>当前：<strong>'+meName+'</strong> （'+(role||'user')+'）</div>';
-  if(role==='admin') el('adminPanel').classList.remove('hidden');
-  setupTabs();
-}
-
-function setupTabs(){
-  document.querySelectorAll('.tab').forEach(b=>{
-    b.addEventListener('click', ()=>{
-      document.querySelectorAll('.tab').forEach(x=>x.classList.remove('ring-4','ring-indigo-400'));
-      b.classList.add('ring-4','ring-indigo-400');
-      currentTab = b.dataset.tab; renderFromData();
-    });
-  });
-  document.querySelector('.tab[data-tab="'+currentTab+'"]').click();
-}
-
-function connectSocket(){
-  setSync('connecting'); socket = io();
-  socket.on('connect', ()=>{ setSync('ok'); socket.emit('register', meName); });
-  socket.on('update', d=>{ window.latestData = d; renderFromData(); });
-  socket.on('onlineUsers', users=>{ if(role==='admin') el('onlineInfo').textContent='当前在线：'+users.length+'人 => '+users.join(', '); });
-  fetch('/data').then(r=>r.json()).then(d=>{ window.latestData=d; renderFromData(); });
-}
-
-function renderFromData(){
-  const data = window.latestData || { news:[], media:[], wishes:[] };
-  const area = el('contentArea'); area.innerHTML='';
-  if(currentTab==='news'){ data.news.forEach(n=>{ area.innerHTML+=`<div class="p-4 bg-gray-900 rounded mb-3"><h3 class="font-bold">${n.title}</h3><p>${n.content}</p>${n.image?`<img src="${n.image}" class="max-preview">`:''}</div>`; }); }
-  if(currentTab==='photos'){ const g=document.createElement('div'); g.className='grid grid-cols-3 gap-4'; (data.media||[]).filter(m=>m.type==='image').forEach(m=>{ g.innerHTML+=`<div class="relative"><img src="${m.filename}" class="max-h-80 w-full object-cover rounded"><button class="absolute bottom-2 right-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded">⛶</button></div>`; }); area.appendChild(g); }
-  if(currentTab==='videos'){ const g=document.createElement('div'); g.className='grid grid-cols-2 gap-4'; (data.media||[]).filter(m=>m.type==='video').forEach(m=>{ g.innerHTML+=`<div class="relative"><video src="${m.filename}" controls class="w-full max-h-60 rounded"></video><button class="absolute bottom-2 right-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded">⛶</button></div>`; }); area.appendChild(g); }
-  if(currentTab==='wishes'){ (data.wishes||[]).forEach(w=>{ area.innerHTML+=`<div class="p-3 bg-gray-900 rounded mb-2"><strong>${w.name}</strong><p>${w.text}</p></div>`; }); }
-}
+socket.on('onlineUsers', list=>{
+  document.getElementById('onlineInfo').innerText = '在线人数: '+list.length+' 人: '+list.join(',');
+});
 </script>
 </body>
 </html>
