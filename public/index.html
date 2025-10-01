@@ -46,9 +46,10 @@
       </div>
 
       <div id="app" class="hidden">
-        <div class="grid grid-cols-3 gap-4 mb-4">
+        <div class="grid grid-cols-4 gap-4 mb-4">
           <button class="tab p-4 bg-indigo-800 rounded" data-tab="news">云善绘新闻</button>
-          <button class="tab p-4 bg-indigo-700 rounded" data-tab="media">视频和照片</button>
+          <button class="tab p-4 bg-indigo-700 rounded" data-tab="photos">照片</button>
+          <button class="tab p-4 bg-indigo-700 rounded" data-tab="videos">视频</button>
           <button class="tab p-4 bg-indigo-700 rounded" data-tab="wishes">愿望池</button>
         </div>
 
@@ -56,12 +57,12 @@
 
         <div id="adminPanel" class="mt-6 p-4 bg-gray-800 rounded hidden">
           <h3 class="font-bold mb-2">管理员上传与管理</h3>
-          <div class="grid grid-cols-3 gap-4">
+          <div class="grid grid-cols-2 gap-4">
             <div>
               <h4 class="font-semibold">发布新闻</h4>
               <input id="newsTitle" class="w-full mt-1 p-2 rounded text-gray-900" placeholder="标题" />
-              <textarea id="newsContent" class="w-full mt-2 p-2 rounded text-gray-900" placeholder="正文（可插入图片链接）"></textarea>
-              <input id="newsImg" class="w-full mt-2 p-2 rounded text-gray-900" placeholder="图片链接（可选）" />
+              <textarea id="newsContent" class="w-full mt-2 p-2 rounded text-gray-900" placeholder="正文"></textarea>
+              <input id="newsImageFile" type="file" class="w-full mt-2" />
               <button id="postNews" class="mt-2 px-3 py-2 bg-green-600 rounded">发布新闻</button>
             </div>
             <div>
@@ -72,22 +73,9 @@
               </div>
               <button id="uploadBtn" class="mt-2 px-3 py-2 bg-blue-600 rounded">上传</button>
             </div>
-            <div>
-              <h4 class="font-semibold">管理愿望池</h4>
-              <p class="text-sm text-gray-300">可删除不当愿望</p>
-            </div>
           </div>
+          <div id="onlineInfo" class="mt-4 text-sm text-gray-300"></div>
         </div>
-      </div>
-    </div>
-
-    <div id="previewModal" class="fixed inset-0 hidden items-center justify-center bg-black bg-opacity-60">
-      <div class="bg-white rounded p-4 max-w-4xl w-full">
-        <div class="flex justify-between items-center mb-2">
-          <h3 id="previewTitle" class="font-bold text-lg"></h3>
-          <button id="closePreview" class="text-gray-600">关闭</button>
-        </div>
-        <div id="previewBody" class="text-gray-900"></div>
       </div>
     </div>
 
@@ -103,6 +91,7 @@ let currentTab = 'news';
 let socket = null;
 
 function el(id){ return document.getElementById(id); }
+
 function setSync(status){
   const s = el('sync');
   if(status === 'ok') s.textContent = '🟢 已连接（实时同步）';
@@ -110,208 +99,86 @@ function setSync(status){
   else s.textContent = '🔴 未连接';
 }
 
-async function api(path, opts){ // small wrapper using fetch
+async function api(path, opts){
   try{
     const res = await fetch(path, opts);
     if(!res.ok) return null;
     return await res.json();
-  }catch(e){
-    return null;
-  }
+  }catch(e){ return null; }
 }
 
-function validateChinese(name){
-  return /^[\u4e00-\u9fa5]{2,}$/.test(name);
-}
+function validateChinese(name){ return /^[\u4e00-\u9fa5]{2,}$/.test(name); }
 
 document.addEventListener('DOMContentLoaded', ()=>{
-  const nameInput = el('nameInput');
-  const pwdRow = el('passwordRow');
-
-  nameInput.addEventListener('input', ()=>{
-    const v = nameInput.value.trim();
-    if(v === ADMIN_NAME) pwdRow.classList.remove('hidden');
-    else pwdRow.classList.add('hidden');
-  });
-
   el('loginBtn').addEventListener('click', async ()=>{
-    const name = nameInput.value.trim();
+    const name = el('nameInput').value.trim();
     const pwd = el('pwdInput').value;
-    el('nameErr').classList.add('hidden');
-    el('pwdErr').classList.add('hidden');
-    if(!validateChinese(name)){ el('nameErr').textContent='姓名须为中文且至少2个字'; el('nameErr').classList.remove('hidden'); return; }
+    if(!validateChinese(name)){ alert('姓名须为中文且至少2个字'); return; }
     const res = await api('/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name, password: pwd }) });
-    if(!res){ alert('登录失败（后端无响应）'); return; }
-    if(!res.success){ if(res.msg) alert(res.msg); return; }
-    role = res.role;
-    meName = name;
-    window.role = role;
-    window.meName = meName;
-    enterApp();
-    connectSocket();
+    if(!res || !res.success){ alert(res?.msg || '登录失败'); return; }
+    role = res.role; meName = name;
+    enterApp(); connectSocket();
   });
-
-  window.enterApp = () => {
-    el('loginCard').classList.add('hidden');
-    el('app').classList.remove('hidden');
-    el('userBox').innerHTML = '<div>当前：<strong>'+meName+'</strong> （'+(role||'user')+'） <button id="logoutBtn" class="ml-2 px-2 py-1 bg-gray-800 rounded">登出</button></div>';
-    el('logoutBtn').addEventListener('click', ()=>location.reload());
-    if(role === 'admin') el('adminPanel').classList.remove('hidden');
-    setupTabs();
-  };
-
-  function setupTabs(){
-    document.querySelectorAll('.tab').forEach(b=>{
-      b.addEventListener('click', ()=>{
-        document.querySelectorAll('.tab').forEach(x=>x.classList.remove('ring-4','ring-indigo-400'));
-        b.classList.add('ring-4','ring-indigo-400');
-        currentTab = b.dataset.tab;
-        window.currentTab = currentTab;
-        renderFromData();
-      });
-    });
-    document.querySelector('.tab[data-tab="'+currentTab+'"]').click();
-  }
 
   el('postNews').addEventListener('click', async ()=>{
     const title = el('newsTitle').value.trim();
     const content = el('newsContent').value.trim();
-    const image = el('newsImg').value.trim() || null;
+    const file = el('newsImageFile').files[0];
     if(!title) return alert('请输入标题');
-    const res = await api('/news', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ title, content, image }) });
-    if(res && res.success){ alert('发布成功'); }
+    let imageUrl = null;
+    if(file){
+      const fd = new FormData(); fd.append('file', file); fd.append('type', 'image');
+      const res = await fetch('/upload', { method:'POST', body: fd });
+      const data = await res.json(); if(data.success) imageUrl = data.item.filename;
+    }
+    const res = await fetch('/news',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ title, content, image:imageUrl })});
+    if(res.ok) alert('发布成功');
   });
 
   el('uploadBtn').addEventListener('click', ()=>{
-    const f = el('fileInput').files[0];
-    if(!f) return alert('请选择文件');
-    if(f.size > 300*1024*1024) return alert('文件超过300MB上限');
-    const fd = new FormData();
-    fd.append('file', f);
-    fd.append('type', f.type.startsWith('video') ? 'video' : 'image');
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/upload');
-    el('uploadProgress').classList.remove('hidden');
-    xhr.upload.onprogress = (e)=>{
-      if(e.lengthComputable){
-        const p = Math.round(e.loaded / e.total * 100);
-        el('uploadBar').style.width = p + '%';
-      }
-    };
-    xhr.onload = ()=>{
-      el('uploadBar').style.width = '0%';
-      el('uploadProgress').classList.add('hidden');
-      if(xhr.status === 200) { alert('上传成功'); }
-      else alert('上传失败');
-    };
-    xhr.onerror = ()=>{ alert('上传出错'); el('uploadProgress').classList.add('hidden'); };
+    const f = el('fileInput').files[0]; if(!f) return alert('请选择文件');
+    const fd = new FormData(); fd.append('file', f); fd.append('type', f.type.startsWith('video')?'video':'image');
+    const xhr = new XMLHttpRequest(); xhr.open('POST','/upload');
+    xhr.onload = ()=>{ alert(xhr.status===200?'上传成功':'上传失败'); };
     xhr.send(fd);
   });
-
-  window.renderContent = function(){ /* stub until data arrives */ };
 });
 
+function enterApp(){
+  el('loginCard').classList.add('hidden');
+  el('app').classList.remove('hidden');
+  el('userBox').innerHTML = '<div>当前：<strong>'+meName+'</strong> （'+(role||'user')+'）</div>';
+  if(role==='admin') el('adminPanel').classList.remove('hidden');
+  setupTabs();
+}
 
-// socket logic
+function setupTabs(){
+  document.querySelectorAll('.tab').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      document.querySelectorAll('.tab').forEach(x=>x.classList.remove('ring-4','ring-indigo-400'));
+      b.classList.add('ring-4','ring-indigo-400');
+      currentTab = b.dataset.tab; renderFromData();
+    });
+  });
+  document.querySelector('.tab[data-tab="'+currentTab+'"]').click();
+}
+
 function connectSocket(){
-  setSync('connecting');
-  socket = io();
-  socket.on('connect', ()=>{
-    setSync('ok');
-    console.log('socket connected');
-  });
-  socket.on('disconnect', ()=>{
-    setSync('failed');
-    console.log('socket disconnected');
-  });
-  socket.on('update', (data)=>{
-    window.latestData = data;
-    renderFromData();
-  });
-  socket.on('connected', ()=>{ /* server handshake */ });
-  // initial fallback to fetch if needed
-  fetch('/data').then(r=>r.json()).then(d=>{ window.latestData = d; renderFromData(); }).catch(()=>{});
+  setSync('connecting'); socket = io();
+  socket.on('connect', ()=>{ setSync('ok'); socket.emit('register', meName); });
+  socket.on('update', d=>{ window.latestData = d; renderFromData(); });
+  socket.on('onlineUsers', users=>{ if(role==='admin') el('onlineInfo').textContent='当前在线：'+users.length+'人 => '+users.join(', '); });
+  fetch('/data').then(r=>r.json()).then(d=>{ window.latestData=d; renderFromData(); });
 }
 
 function renderFromData(){
   const data = window.latestData || { news:[], media:[], wishes:[] };
-  const area = document.getElementById('contentArea');
-  if(!area) return;
-  if(window.currentTab === 'news'){
-    area.innerHTML = '';
-    data.news.forEach(n=>{
-      const card = document.createElement('div');
-      card.className = 'p-4 bg-gray-900 rounded mb-3';
-      card.innerHTML = '<div class="flex justify-between"><div><h3 class="font-bold text-lg">'+escapeHtml(n.title)+'</h3><div class="text-sm text-gray-400">'+(new Date(n.date)).toLocaleString()+'</div></div>' + (window.role==='admin'?'<button class="del news" data-id="'+n.id+'">删除</button>':'') + '</div><p class="mt-2">'+escapeHtml(n.content||'')+'</p>';
-      if(n.image){
-        const img = document.createElement('img');
-        img.src = n.image;
-        img.className = 'mt-2 max-preview cursor-pointer';
-        img.onclick = ()=>{ if(img.requestFullscreen){ img.requestFullscreen(); } else if(img.webkitRequestFullscreen){ img.webkitRequestFullscreen(); } };
-        card.appendChild(img);
-      }
-      const comWrap = document.createElement('div');
-      comWrap.className = 'mt-2 text-sm text-gray-400';
-      comWrap.innerHTML = '<div>👍 '+(n.likes||0)+' <button class="like" data-id="'+n.id+'" data-type="news">点赞</button></div>';
-      if(n.comments && n.comments.length){
-        n.comments.forEach(c=>{ const p = document.createElement('div'); p.className='mt-1'; p.textContent = c.name+': '+c.text; comWrap.appendChild(p); });
-      }
-      const addC = document.createElement('div'); addC.className='mt-2';
-      addC.innerHTML = '<input class="commentInput p-1 rounded text-gray-900" placeholder="评论..." data-id="'+n.id+'" data-type="news" /> <button class="addc px-2 py-1 bg-green-600 rounded">发表</button>';
-      comWrap.appendChild(addC);
-      card.appendChild(comWrap);
-      area.appendChild(card);
-    });
-  } else if(window.currentTab === 'media'){
-    area.innerHTML = '<div class="grid grid-cols-3 gap-4">';
-    (data.media||[]).forEach(m=>{
-      const wrap = document.createElement('div');
-      wrap.className = 'p-2 bg-gray-900 rounded';
-      if(m.type === 'image'){
-        const img = document.createElement('img');
-        img.src = m.filename;
-        img.className = 'cursor-pointer max-preview';
-        img.onclick = ()=>{ if(img.requestFullscreen){ img.requestFullscreen(); } else if(img.webkitRequestFullscreen){ img.webkitRequestFullscreen(); } };
-        wrap.appendChild(img);
-      } else {
-        const vid = document.createElement('video');
-        vid.controls = true;
-        vid.className = 'w-full max-h-60 cursor-pointer';
-        const src = document.createElement('source'); src.src = m.filename;
-        vid.appendChild(src);
-        vid.onclick = ()=>{ if(vid.requestFullscreen){ vid.requestFullscreen(); } else if(vid.webkitRequestFullscreen){ vid.webkitRequestFullscreen(); } vid.play(); };
-        wrap.appendChild(vid);
-      }
-      if(window.role==='admin'){ const delDiv = document.createElement('div'); delDiv.className='mt-2'; delDiv.innerHTML = '<button class="del media" data-id="'+m.id+'">删除</button>'; wrap.appendChild(delDiv); }
-      area.querySelector('.grid')?.appendChild(wrap);
-    });
-    area.innerHTML += '</div>';
-  } else if(window.currentTab === 'wishes'){
-    area.innerHTML = '';
-    const form = document.createElement('div');
-    form.className='p-3 bg-gray-900 rounded mb-3';
-    form.innerHTML = '<div class="mb-2">以 <strong>'+escapeHtml(window.meName||'匿名')+'</strong> 许愿</div><textarea id="wishText" class="w-full p-2 rounded text-gray-900" placeholder="写下你的愿望..."></textarea><div class="mt-2"><button id="postWish" class="px-3 py-2 bg-indigo-600 rounded">发表愿望</button></div>';
-    area.appendChild(form);
-    (data.wishes||[]).forEach(w=>{
-      const c = document.createElement('div'); c.className='p-3 bg-gray-900 rounded mb-2';
-      c.innerHTML = '<div class="flex justify-between"><div><strong>'+escapeHtml(w.name || '匿名')+'</strong><div class="text-sm text-gray-400">'+(new Date(w.date)).toLocaleString()+'</div></div>' + (window.role==='admin'?'<button class="del wish" data-id="'+w.id+'">删除</button>':'') + '</div><p class="mt-2">'+escapeHtml(w.text)+'</p><div class="mt-2">👍 '+(w.likes||0)+' <button class="like" data-id="'+w.id+'" data-type="wishes">点赞</button></div>';
-      area.appendChild(c);
-    });
-    setTimeout(()=>{ const btn = document.getElementById('postWish'); if(btn) btn.addEventListener('click', async ()=>{ const t = el('wishText').value.trim(); if(!t) return alert('请输入内容'); const res = await fetch('/wish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name: window.meName, text: t})}); if(res.ok) alert('已提交'); }); }, 50);
-  }
-
-  // attach handlers: delete, like, add comment
-  setTimeout(()=>{
-    document.querySelectorAll('.del').forEach(b=> b.addEventListener('click', async ()=>{ if(!confirm('确认删除？')) return; const id=b.dataset.id; if(b.classList.contains('news')) await fetch('/news/'+id, { method:'DELETE' }); if(b.classList.contains('media')) await fetch('/media/'+id, { method:'DELETE' }); if(b.classList.contains('wish')) await fetch('/wish/'+id, { method:'DELETE' }); }));
-    document.querySelectorAll('.like').forEach(b=> b.addEventListener('click', async ()=>{ const id=b.dataset.id, type=b.dataset.type; await fetch('/like',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,id})}); }));
-    document.querySelectorAll('.addc').forEach(btn=> btn.addEventListener('click', async ()=>{ const parent=btn.parentElement; const input=parent.querySelector('.commentInput'); const id=input.dataset.id, type=input.dataset.type; const text=input.value.trim(); if(!text) return; await fetch('/comment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,id,name: window.meName, text})}); }));
-  }, 100);
+  const area = el('contentArea'); area.innerHTML='';
+  if(currentTab==='news'){ data.news.forEach(n=>{ area.innerHTML+=`<div class="p-4 bg-gray-900 rounded mb-3"><h3 class="font-bold">${n.title}</h3><p>${n.content}</p>${n.image?`<img src="${n.image}" class="max-preview">`:''}</div>`; }); }
+  if(currentTab==='photos'){ const g=document.createElement('div'); g.className='grid grid-cols-3 gap-4'; (data.media||[]).filter(m=>m.type==='image').forEach(m=>{ g.innerHTML+=`<div class="relative"><img src="${m.filename}" class="max-h-80 w-full object-cover rounded"><button class="absolute bottom-2 right-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded">⛶</button></div>`; }); area.appendChild(g); }
+  if(currentTab==='videos'){ const g=document.createElement('div'); g.className='grid grid-cols-2 gap-4'; (data.media||[]).filter(m=>m.type==='video').forEach(m=>{ g.innerHTML+=`<div class="relative"><video src="${m.filename}" controls class="w-full max-h-60 rounded"></video><button class="absolute bottom-2 right-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded">⛶</button></div>`; }); area.appendChild(g); }
+  if(currentTab==='wishes'){ (data.wishes||[]).forEach(w=>{ area.innerHTML+=`<div class="p-3 bg-gray-900 rounded mb-2"><strong>${w.name}</strong><p>${w.text}</p></div>`; }); }
 }
-
-function openPreview(title, html){}
-document.addEventListener('click', (e)=>{ if(e.target && e.target.id==='closePreview') { el('previewModal').classList.add('hidden'); el('previewModal').classList.remove('flex'); } });
-
-function escapeHtml(s){ if(!s) return ''; return s.toString().replace(/[&<>"']/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]); }); }
 </script>
 </body>
 </html>
