@@ -14,14 +14,13 @@ const PORT = process.env.PORT || 3000;
 const ADMIN_USER = process.env.ADMIN_USER || '管理员';
 const ADMIN_PASS = process.env.ADMIN_PASS || 'adminpass';
 
-const publicDir = __dirname;
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 app.use(express.json());
 app.use(morgan('tiny'));
 app.use('/uploads', express.static(uploadDir));
-app.use(express.static(publicDir));
+app.use(express.static(__dirname));
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
