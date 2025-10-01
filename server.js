@@ -1,15 +1,19 @@
 const express = require('express');
+const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
+const { Server } = require('socket.io');
 const morgan = require('morgan');
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
+
 const PORT = process.env.PORT || 3000;
 const ADMIN_USER = process.env.ADMIN_USER || '管理员';
 const ADMIN_PASS = process.env.ADMIN_PASS || 'adminpass';
 
-// ensure folders
 const publicDir = path.join(__dirname, 'public');
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(publicDir)) fs.mkdirSync(publicDir, { recursive: true });
@@ -18,7 +22,7 @@ if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 app.use(express.json());
 app.use(morgan('tiny'));
 
-// serve static and uploads
+// static routes (uploads must be accessible for video range requests)
 app.use('/uploads', express.static(uploadDir));
 app.use(express.static(publicDir));
 
@@ -32,18 +36,22 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage, limits: { fileSize: 300 * 1024 * 1024 } });
 
-// data file
 const DATA_PATH = path.join(__dirname, 'data.json');
 function readData() {
   if (!fs.existsSync(DATA_PATH)) {
-    const init = { news: [], media: [], wishes: [] , usersOnline: 0 };
+    const init = { news: [], media: [], wishes: [] };
     fs.writeFileSync(DATA_PATH, JSON.stringify(init, null, 2));
   }
   return JSON.parse(fs.readFileSync(DATA_PATH, 'utf-8'));
 }
 function saveData(d) { fs.writeFileSync(DATA_PATH, JSON.stringify(d, null, 2)); }
 
-// simple health
+function broadcastUpdate() {
+  const d = readData();
+  io.emit('update', d);
+}
+
+// Basic health
 app.get('/health', (req, res) => res.json({ ok: true }));
 
 // login
@@ -59,28 +67,21 @@ app.post('/login', (req, res) => {
   return res.json({ success: true, role: 'user' });
 });
 
-// get full data
+// get current data
 app.get('/data', (req, res) => {
   const d = readData();
-  return res.json(d);
+  res.json(d);
 });
 
-// post news (admin)
+// create news (admin)
 app.post('/news', (req, res) => {
   const { title, content, image } = req.body || {};
   if (!title) return res.status(400).json({ success: false, msg: '缺少标题' });
   const d = readData();
-  const item = {
-    id: Date.now(),
-    title: title,
-    content: content || '',
-    image: image || null,
-    date: new Date().toISOString(),
-    likes: 0,
-    comments: []
-  };
+  const item = { id: Date.now(), title, content: content||'', image: image||null, date: new Date().toISOString(), likes:0, comments:[] };
   d.news.unshift(item);
   saveData(d);
+  broadcastUpdate();
   res.json({ success: true, item });
 });
 
@@ -89,17 +90,10 @@ app.post('/upload', upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ success: false, msg: '未收到文件' });
   const type = (req.body.type) ? req.body.type : (req.file.mimetype.startsWith('video') ? 'video' : 'image');
   const d = readData();
-  const item = {
-    id: Date.now(),
-    type,
-    filename: '/uploads/' + req.file.filename,
-    originalName: req.file.originalname,
-    date: new Date().toISOString(),
-    likes: 0,
-    comments: []
-  };
+  const item = { id: Date.now(), type, filename: '/uploads/' + req.file.filename, originalName: req.file.originalname, date: new Date().toISOString(), likes:0, comments:[] };
   d.media.unshift(item);
   saveData(d);
+  broadcastUpdate();
   res.json({ success: true, item });
 });
 
@@ -108,9 +102,10 @@ app.post('/wish', (req, res) => {
   const { name, text } = req.body || {};
   if (!text) return res.status(400).json({ success: false, msg: '许愿内容为空' });
   const d = readData();
-  const item = { id: Date.now(), name: name || '匿名', text, date: new Date().toISOString(), likes: 0, comments: [] };
+  const item = { id: Date.now(), name: name||'匿名', text, date: new Date().toISOString(), likes:0, comments:[] };
   d.wishes.unshift(item);
   saveData(d);
+  broadcastUpdate();
   res.json({ success: true, item });
 });
 
@@ -124,8 +119,9 @@ app.post('/comment', (req, res) => {
   const idx = list.findIndex(i => String(i.id) === String(id));
   if (idx === -1) return res.status(404).json({ success: false, msg: '未找到目标' });
   list[idx].comments = list[idx].comments || [];
-  list[idx].comments.push({ id: Date.now(), name: name || '匿名', text, date: new Date().toISOString() });
+  list[idx].comments.push({ id: Date.now(), name: name||'匿名', text, date: new Date().toISOString() });
   saveData(d);
+  broadcastUpdate();
   res.json({ success: true });
 });
 
@@ -138,8 +134,9 @@ app.post('/like', (req, res) => {
   if (!Array.isArray(list)) return res.status(400).json({ success: false });
   const item = list.find(i => String(i.id) === String(id));
   if (!item) return res.status(404).json({ success: false });
-  item.likes = (item.likes || 0) + 1;
+  item.likes = (item.likes||0) + 1;
   saveData(d);
+  broadcastUpdate();
   res.json({ success: true, likes: item.likes });
 });
 
@@ -148,26 +145,37 @@ app.delete('/news/:id', (req, res) => {
   const d = readData();
   d.news = d.news.filter(n => String(n.id) !== String(req.params.id));
   saveData(d);
+  broadcastUpdate();
   res.json({ success: true });
 });
 app.delete('/media/:id', (req, res) => {
   const d = readData();
   const removed = d.media.filter(m => String(m.id) === String(req.params.id));
   removed.forEach(r => {
-    try { fs.unlinkSync(path.join(__dirname, r.filename)); } catch (e) {}
+    try { fs.unlinkSync(path.join(__dirname, r.filename)); } catch(e) {}
   });
   d.media = d.media.filter(m => String(m.id) !== String(req.params.id));
   saveData(d);
+  broadcastUpdate();
   res.json({ success: true });
 });
 app.delete('/wish/:id', (req, res) => {
   const d = readData();
   d.wishes = d.wishes.filter(w => String(w.id) !== String(req.params.id));
   saveData(d);
+  broadcastUpdate();
   res.json({ success: true });
 });
 
-// start server
-app.listen(PORT, () => {
+// socket.io connections
+io.on('connection', (socket) => {
+  console.log('socket connected', socket.id);
+  // send current data immediately
+  socket.emit('update', readData());
+  socket.emit('connected');
+  socket.on('disconnect', () => { console.log('socket disconnect', socket.id); });
+});
+
+server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
