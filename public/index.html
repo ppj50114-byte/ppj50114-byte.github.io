@@ -247,7 +247,7 @@ function renderFromData(){
         const img = document.createElement('img');
         img.src = n.image;
         img.className = 'mt-2 max-preview cursor-pointer';
-        img.onclick = ()=>openPreview(n.title, '<img src="'+n.image+'" class="max-preview" />');
+        img.onclick = ()=>{ if(img.requestFullscreen){ img.requestFullscreen(); } else if(img.webkitRequestFullscreen){ img.webkitRequestFullscreen(); } };
         card.appendChild(img);
       }
       const comWrap = document.createElement('div');
@@ -271,7 +271,7 @@ function renderFromData(){
         const img = document.createElement('img');
         img.src = m.filename;
         img.className = 'cursor-pointer max-preview';
-        img.onclick = ()=>openPreview(m.originalName || '图片', '<img src="'+m.filename+'" class="max-preview" />');
+        img.onclick = ()=>{ if(img.requestFullscreen){ img.requestFullscreen(); } else if(img.webkitRequestFullscreen){ img.webkitRequestFullscreen(); } };
         wrap.appendChild(img);
       } else {
         const vid = document.createElement('video');
@@ -279,6 +279,7 @@ function renderFromData(){
         vid.className = 'w-full max-h-60 cursor-pointer';
         const src = document.createElement('source'); src.src = m.filename;
         vid.appendChild(src);
+        vid.onclick = ()=>{ if(vid.requestFullscreen){ vid.requestFullscreen(); } else if(vid.webkitRequestFullscreen){ vid.webkitRequestFullscreen(); } vid.play(); };
         wrap.appendChild(vid);
       }
       if(window.role==='admin'){ const delDiv = document.createElement('div'); delDiv.className='mt-2'; delDiv.innerHTML = '<button class="del media" data-id="'+m.id+'">删除</button>'; wrap.appendChild(delDiv); }
@@ -307,7 +308,7 @@ function renderFromData(){
   }, 100);
 }
 
-function openPreview(title, html){ el('previewTitle').textContent = title; el('previewBody').innerHTML = html; el('previewModal').classList.remove('hidden'); el('previewModal').classList.add('flex'); }
+function openPreview(title, html){}
 document.addEventListener('click', (e)=>{ if(e.target && e.target.id==='closePreview') { el('previewModal').classList.add('hidden'); el('previewModal').classList.remove('flex'); } });
 
 function escapeHtml(s){ if(!s) return ''; return s.toString().replace(/[&<>"']/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]); }); }
