@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>云善绘 团队空间</title>
+<title>云善绘 团队空间 — 实时版</title>
 <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 <style>
   body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
-  .glass { background: rgba(255,255,255,0.7); backdrop-filter: blur(6px); }
+  .glass { background: rgba(255,255,255,0.06); backdrop-filter: blur(6px); }
   .max-preview { max-height: 70vh; max-width: 90vw; }
   .sync-ind { position: fixed; left: 16px; bottom: 16px; font-weight:600; }
   .hidden { display:none; }
@@ -17,8 +17,8 @@
   <div class="container mx-auto p-6">
     <div class="flex items-center justify-between mb-6">
       <div>
-        <h1 class="text-3xl font-extrabold tracking-tight">云善绘 — 团队新闻空间</h1>
-        <p class="text-sm text-gray-300">现代 · 实时 · 协作</p>
+        <h1 class="text-3xl font-extrabold tracking-tight">云善绘 — 实时团队空间</h1>
+        <p class="text-sm text-gray-300">基于 WebSocket 的实时同步</p>
       </div>
       <div id="userBox" class="text-right"></div>
     </div>
@@ -91,35 +91,31 @@
       </div>
     </div>
 
-    <div id="sync" class="sync-ind text-sm">🟡 正在同步...</div>
+    <div id="sync" class="sync-ind text-sm">🔴 未连接</div>
   </div>
 
+<script src="/socket.io/socket.io.js"></script>
 <script>
 const ADMIN_NAME = '管理员';
-const POLL_INTERVAL = 3000;
 let role = null;
 let meName = '';
 let currentTab = 'news';
-let pollTimer = null;
+let socket = null;
 
 function el(id){ return document.getElementById(id); }
-function showSync(status){
+function setSync(status){
   const s = el('sync');
-  if(status === 'ok') s.textContent = '🟢 已同步 → 正常';
-  else if(status === 'syncing') s.textContent = '🟡 正在同步...';
-  else s.textContent = '🔴 同步失败 → 网络异常';
+  if(status === 'ok') s.textContent = '🟢 已连接（实时同步）';
+  else if(status === 'connecting') s.textContent = '🟡 连接中...';
+  else s.textContent = '🔴 未连接';
 }
 
-async function api(path, opts){
+async function api(path, opts){ // small wrapper using fetch
   try{
-    showSync('syncing');
     const res = await fetch(path, opts);
-    if(!res.ok) { showSync('failed'); return null; }
-    // try parse json safely
-    const txt = await res.text();
-    try { const data = JSON.parse(txt); showSync('ok'); return data; } catch(e){ showSync('failed'); return null; }
+    if(!res.ok) return null;
+    return await res.json();
   }catch(e){
-    showSync('failed');
     return null;
   }
 }
@@ -129,7 +125,6 @@ function validateChinese(name){
 }
 
 document.addEventListener('DOMContentLoaded', ()=>{
-
   const nameInput = el('nameInput');
   const pwdRow = el('passwordRow');
 
@@ -145,15 +140,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
     el('nameErr').classList.add('hidden');
     el('pwdErr').classList.add('hidden');
     if(!validateChinese(name)){ el('nameErr').textContent='姓名须为中文且至少2个字'; el('nameErr').classList.remove('hidden'); return; }
-    const res = await api('/login', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ name, password: pwd })
-    });
-    if(!res){ alert('登录失败（请检查后端 /network）'); return; }
+    const res = await api('/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name, password: pwd }) });
+    if(!res){ alert('登录失败（后端无响应）'); return; }
     if(!res.success){ if(res.msg) alert(res.msg); return; }
     role = res.role;
     meName = name;
+    window.role = role;
+    window.meName = meName;
     enterApp();
+    connectSocket();
   });
 
   window.enterApp = () => {
@@ -163,7 +158,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     el('logoutBtn').addEventListener('click', ()=>location.reload());
     if(role === 'admin') el('adminPanel').classList.remove('hidden');
     setupTabs();
-    startPolling();
   };
 
   function setupTabs(){
@@ -172,7 +166,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
         document.querySelectorAll('.tab').forEach(x=>x.classList.remove('ring-4','ring-indigo-400'));
         b.classList.add('ring-4','ring-indigo-400');
         currentTab = b.dataset.tab;
-        renderContent();
+        window.currentTab = currentTab;
+        renderFromData();
       });
     });
     document.querySelector('.tab[data-tab="'+currentTab+'"]').click();
@@ -184,7 +179,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const image = el('newsImg').value.trim() || null;
     if(!title) return alert('请输入标题');
     const res = await api('/news', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ title, content, image }) });
-    if(res && res.success){ alert('发布成功'); renderContent(); }
+    if(res && res.success){ alert('发布成功'); }
   });
 
   el('uploadBtn').addEventListener('click', ()=>{
@@ -206,142 +201,116 @@ document.addEventListener('DOMContentLoaded', ()=>{
     xhr.onload = ()=>{
       el('uploadBar').style.width = '0%';
       el('uploadProgress').classList.add('hidden');
-      if(xhr.status === 200) { alert('上传成功'); renderContent(); }
+      if(xhr.status === 200) { alert('上传成功'); }
       else alert('上传失败');
     };
     xhr.onerror = ()=>{ alert('上传出错'); el('uploadProgress').classList.add('hidden'); };
     xhr.send(fd);
   });
 
-  async function pollOnce(){
-    const data = await api('/data');
-    if(data) { window.latestData = data; renderContent(); }
-  }
-  window.startPolling = ()=>{
-    if(pollTimer) clearInterval(pollTimer);
-    pollOnce();
-    pollTimer = setInterval(pollOnce, POLL_INTERVAL);
-  };
-
-  function renderContent(){
-    const data = window.latestData || { news:[], media:[], wishes:[] };
-    const area = el('contentArea');
-    if(currentTab === 'news'){
-      area.innerHTML = '';
-      data.news.forEach(n=>{
-        const card = document.createElement('div');
-        card.className = 'p-4 bg-gray-900 rounded mb-3';
-        card.innerHTML = '<div class="flex justify-between"><div><h3 class="font-bold text-lg">'+escapeHtml(n.title)+'</h3><div class="text-sm text-gray-400">'+(new Date(n.date)).toLocaleString()+'</div></div>'+ (role==='admin'?'<button class="del news" data-id="'+n.id+'">删除</button>':'') +'</div><p class="mt-2">'+escapeHtml(n.content||'')+'</p>';
-        if(n.image) {
-          const img = document.createElement('img');
-          img.src = n.image;
-          img.className = 'mt-2 max-preview cursor-pointer';
-          img.onclick = ()=>openPreview(n.title, '<img src="'+n.image+'" class="max-preview" />');
-          card.appendChild(img);
-        }
-        const comWrap = document.createElement('div');
-        comWrap.className = 'mt-2 text-sm text-gray-400';
-        comWrap.innerHTML = '<div>👍 '+(n.likes||0)+' <button class="like" data-id="'+n.id+'" data-type="news">点赞</button></div>';
-        if(n.comments && n.comments.length){
-          n.comments.forEach(c=>{
-            const p = document.createElement('div'); p.className='mt-1'; p.textContent = c.name+': '+c.text; comWrap.appendChild(p);
-          });
-        }
-        const addC = document.createElement('div'); addC.className='mt-2';
-        addC.innerHTML = '<input class="commentInput p-1 rounded text-gray-900" placeholder="评论..." data-id="'+n.id+'" data-type="news" /> <button class="addc px-2 py-1 bg-green-600 rounded">发表</button>';
-        comWrap.appendChild(addC);
-        card.appendChild(comWrap);
-        area.appendChild(card);
-      });
-    } else if(currentTab === 'media'){
-      area.innerHTML = '<div class="grid grid-cols-3 gap-4">';
-      (data.media||[]).forEach(m=>{
-        const wrap = document.createElement('div');
-        wrap.className = 'p-2 bg-gray-900 rounded';
-        if(m.type === 'image'){
-          const img = document.createElement('img');
-          img.src = m.filename;
-          img.className = 'cursor-pointer max-preview';
-          img.onclick = ()=>openPreview(m.originalName || '图片', '<img src="'+m.filename+'" class="max-preview" />');
-          wrap.appendChild(img);
-        } else {
-          const vid = document.createElement('video');
-          vid.controls = true;
-          vid.className = 'w-full max-h-60 cursor-pointer';
-          const src = document.createElement('source'); src.src = m.filename;
-          vid.appendChild(src);
-          wrap.appendChild(vid);
-        }
-        if(role==='admin') {
-          const delDiv = document.createElement('div'); delDiv.className='mt-2'; delDiv.innerHTML = '<button class="del media" data-id="'+m.id+'">删除</button>'; wrap.appendChild(delDiv);
-        }
-        area.querySelector('.grid')?.appendChild(wrap);
-      });
-      area.innerHTML += '</div>';
-    } else if(currentTab === 'wishes'){
-      area.innerHTML = '';
-      const form = document.createElement('div');
-      form.className='p-3 bg-gray-900 rounded mb-3';
-      form.innerHTML = '<div class="mb-2">以 <strong>'+escapeHtml(meName||'匿名')+'</strong> 许愿</div><textarea id="wishText" class="w-full p-2 rounded text-gray-900" placeholder="写下你的愿望..."></textarea><div class="mt-2"><button id="postWish" class="px-3 py-2 bg-indigo-600 rounded">发表愿望</button></div>';
-      area.appendChild(form);
-      (data.wishes||[]).forEach(w=>{
-        const c = document.createElement('div'); c.className='p-3 bg-gray-900 rounded mb-2';
-        c.innerHTML = '<div class="flex justify-between"><div><strong>'+escapeHtml(w.name || '匿名')+'</strong><div class="text-sm text-gray-400">'+(new Date(w.date)).toLocaleString()+'</div></div>' + (role==='admin'?'<button class="del wish" data-id="'+w.id+'">删除</button>':'') + '</div><p class="mt-2">'+escapeHtml(w.text)+'</p><div class="mt-2">👍 '+(w.likes||0)+' <button class="like" data-id="'+w.id+'" data-type="wishes">点赞</button></div>';
-        area.appendChild(c);
-      });
-      setTimeout(()=>{ el('postWish').addEventListener('click', async ()=>{
-        const t = el('wishText').value.trim(); if(!t) return alert('请输入内容');
-        const res = await api('/wish', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name: meName, text: t }) });
-        if(res && res.success){ el('wishText').value=''; renderContent(); }
-      }); }, 20);
-    }
-
-    // attach delete handlers
-    document.querySelectorAll('.del').forEach(b=>{
-      b.addEventListener('click', async ()=>{
-        if(!confirm('确认删除？')) return;
-        const id = b.dataset.id;
-        if(b.classList.contains('news')) await api('/news/'+id, { method:'DELETE' });
-        if(b.classList.contains('media')) await api('/media/'+id, { method:'DELETE' });
-        if(b.classList.contains('wish')) await api('/wish/'+id, { method:'DELETE' });
-        renderContent();
-      });
-    });
-
-    // like handlers
-    document.querySelectorAll('.like').forEach(b=>{
-      b.addEventListener('click', async ()=>{
-        const id = b.dataset.id, type = b.dataset.type;
-        await api('/like', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ type, id }) });
-        renderContent();
-      });
-    });
-
-    // add comments
-    document.querySelectorAll('.addc').forEach(btn=>{
-      btn.addEventListener('click', async ()=>{
-        const parent = btn.parentElement;
-        const input = parent.querySelector('.commentInput');
-        const id = input.dataset.id, type = input.dataset.type;
-        const text = input.value.trim();
-        if(!text) return;
-        await api('/comment', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ type, id, name: meName, text }) });
-        renderContent();
-      });
-    });
-  }
-
-  window.openPreview = (title, html) => {
-    el('previewTitle').textContent = title;
-    el('previewBody').innerHTML = html;
-    el('previewModal').classList.remove('hidden');
-    el('previewModal').classList.add('flex');
-  };
-  el('closePreview').addEventListener('click', ()=>{ el('previewModal').classList.add('hidden'); el('previewModal').classList.remove('flex'); });
-
-  function escapeHtml(s){ if(!s) return ''; return s.toString().replace(/[&<>"']/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]); }); }
-
+  window.renderContent = function(){ /* stub until data arrives */ };
 });
+
+
+// socket logic
+function connectSocket(){
+  setSync('connecting');
+  socket = io();
+  socket.on('connect', ()=>{
+    setSync('ok');
+    console.log('socket connected');
+  });
+  socket.on('disconnect', ()=>{
+    setSync('failed');
+    console.log('socket disconnected');
+  });
+  socket.on('update', (data)=>{
+    window.latestData = data;
+    renderFromData();
+  });
+  socket.on('connected', ()=>{ /* server handshake */ });
+  // initial fallback to fetch if needed
+  fetch('/data').then(r=>r.json()).then(d=>{ window.latestData = d; renderFromData(); }).catch(()=>{});
+}
+
+function renderFromData(){
+  const data = window.latestData || { news:[], media:[], wishes:[] };
+  const area = document.getElementById('contentArea');
+  if(!area) return;
+  if(window.currentTab === 'news'){
+    area.innerHTML = '';
+    data.news.forEach(n=>{
+      const card = document.createElement('div');
+      card.className = 'p-4 bg-gray-900 rounded mb-3';
+      card.innerHTML = '<div class="flex justify-between"><div><h3 class="font-bold text-lg">'+escapeHtml(n.title)+'</h3><div class="text-sm text-gray-400">'+(new Date(n.date)).toLocaleString()+'</div></div>' + (window.role==='admin'?'<button class="del news" data-id="'+n.id+'">删除</button>':'') + '</div><p class="mt-2">'+escapeHtml(n.content||'')+'</p>';
+      if(n.image){
+        const img = document.createElement('img');
+        img.src = n.image;
+        img.className = 'mt-2 max-preview cursor-pointer';
+        img.onclick = ()=>openPreview(n.title, '<img src="'+n.image+'" class="max-preview" />');
+        card.appendChild(img);
+      }
+      const comWrap = document.createElement('div');
+      comWrap.className = 'mt-2 text-sm text-gray-400';
+      comWrap.innerHTML = '<div>👍 '+(n.likes||0)+' <button class="like" data-id="'+n.id+'" data-type="news">点赞</button></div>';
+      if(n.comments && n.comments.length){
+        n.comments.forEach(c=>{ const p = document.createElement('div'); p.className='mt-1'; p.textContent = c.name+': '+c.text; comWrap.appendChild(p); });
+      }
+      const addC = document.createElement('div'); addC.className='mt-2';
+      addC.innerHTML = '<input class="commentInput p-1 rounded text-gray-900" placeholder="评论..." data-id="'+n.id+'" data-type="news" /> <button class="addc px-2 py-1 bg-green-600 rounded">发表</button>';
+      comWrap.appendChild(addC);
+      card.appendChild(comWrap);
+      area.appendChild(card);
+    });
+  } else if(window.currentTab === 'media'){
+    area.innerHTML = '<div class="grid grid-cols-3 gap-4">';
+    (data.media||[]).forEach(m=>{
+      const wrap = document.createElement('div');
+      wrap.className = 'p-2 bg-gray-900 rounded';
+      if(m.type === 'image'){
+        const img = document.createElement('img');
+        img.src = m.filename;
+        img.className = 'cursor-pointer max-preview';
+        img.onclick = ()=>openPreview(m.originalName || '图片', '<img src="'+m.filename+'" class="max-preview" />');
+        wrap.appendChild(img);
+      } else {
+        const vid = document.createElement('video');
+        vid.controls = true;
+        vid.className = 'w-full max-h-60 cursor-pointer';
+        const src = document.createElement('source'); src.src = m.filename;
+        vid.appendChild(src);
+        wrap.appendChild(vid);
+      }
+      if(window.role==='admin'){ const delDiv = document.createElement('div'); delDiv.className='mt-2'; delDiv.innerHTML = '<button class="del media" data-id="'+m.id+'">删除</button>'; wrap.appendChild(delDiv); }
+      area.querySelector('.grid')?.appendChild(wrap);
+    });
+    area.innerHTML += '</div>';
+  } else if(window.currentTab === 'wishes'){
+    area.innerHTML = '';
+    const form = document.createElement('div');
+    form.className='p-3 bg-gray-900 rounded mb-3';
+    form.innerHTML = '<div class="mb-2">以 <strong>'+escapeHtml(window.meName||'匿名')+'</strong> 许愿</div><textarea id="wishText" class="w-full p-2 rounded text-gray-900" placeholder="写下你的愿望..."></textarea><div class="mt-2"><button id="postWish" class="px-3 py-2 bg-indigo-600 rounded">发表愿望</button></div>';
+    area.appendChild(form);
+    (data.wishes||[]).forEach(w=>{
+      const c = document.createElement('div'); c.className='p-3 bg-gray-900 rounded mb-2';
+      c.innerHTML = '<div class="flex justify-between"><div><strong>'+escapeHtml(w.name || '匿名')+'</strong><div class="text-sm text-gray-400">'+(new Date(w.date)).toLocaleString()+'</div></div>' + (window.role==='admin'?'<button class="del wish" data-id="'+w.id+'">删除</button>':'') + '</div><p class="mt-2">'+escapeHtml(w.text)+'</p><div class="mt-2">👍 '+(w.likes||0)+' <button class="like" data-id="'+w.id+'" data-type="wishes">点赞</button></div>';
+      area.appendChild(c);
+    });
+    setTimeout(()=>{ const btn = document.getElementById('postWish'); if(btn) btn.addEventListener('click', async ()=>{ const t = el('wishText').value.trim(); if(!t) return alert('请输入内容'); const res = await fetch('/wish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name: window.meName, text: t})}); if(res.ok) alert('已提交'); }); }, 50);
+  }
+
+  // attach handlers: delete, like, add comment
+  setTimeout(()=>{
+    document.querySelectorAll('.del').forEach(b=> b.addEventListener('click', async ()=>{ if(!confirm('确认删除？')) return; const id=b.dataset.id; if(b.classList.contains('news')) await fetch('/news/'+id, { method:'DELETE' }); if(b.classList.contains('media')) await fetch('/media/'+id, { method:'DELETE' }); if(b.classList.contains('wish')) await fetch('/wish/'+id, { method:'DELETE' }); }));
+    document.querySelectorAll('.like').forEach(b=> b.addEventListener('click', async ()=>{ const id=b.dataset.id, type=b.dataset.type; await fetch('/like',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,id})}); }));
+    document.querySelectorAll('.addc').forEach(btn=> btn.addEventListener('click', async ()=>{ const parent=btn.parentElement; const input=parent.querySelector('.commentInput'); const id=input.dataset.id, type=input.dataset.type; const text=input.value.trim(); if(!text) return; await fetch('/comment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,id,name: window.meName, text})}); }));
+  }, 100);
+}
+
+function openPreview(title, html){ el('previewTitle').textContent = title; el('previewBody').innerHTML = html; el('previewModal').classList.remove('hidden'); el('previewModal').classList.add('flex'); }
+document.addEventListener('click', (e)=>{ if(e.target && e.target.id==='closePreview') { el('previewModal').classList.add('hidden'); el('previewModal').classList.remove('flex'); } });
+
+function escapeHtml(s){ if(!s) return ''; return s.toString().replace(/[&<>"']/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]); }); }
 </script>
 </body>
 </html>
