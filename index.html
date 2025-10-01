@@ -3,145 +3,294 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>云善绘 团队空间</title>
+<title>云善绘 团队空间 — 升级版</title>
 <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 <style>
   body { font-family: 'Inter', sans-serif; }
-  .glass { background: rgba(255,255,255,0.08); backdrop-filter: blur(10px); }
+  .glass { background: rgba(255,255,255,0.06); backdrop-filter: blur(8px); }
   .tab-active { background: #4f46e5; }
+  .small { font-size: 0.85rem; }
 </style>
 </head>
-<body class="bg-gradient-to-br from-gray-900 via-purple-900 to-indigo-900 text-gray-100 min-h-screen flex items-center justify-center">
-  <div class="w-full max-w-5xl p-6 glass rounded-2xl shadow-xl">
-    <div class="flex items-center justify-center mb-6 space-x-2">
-      <img src="/logo.png" alt="Logo" class="w-12 h-12 rounded" />
-      <h1 class="text-3xl font-extrabold">云善绘 团队空间</h1>
-    </div>
-
-    <!-- 登录界面 -->
-    <div id="loginBox" class="text-center">
-      <input id="nameInput" placeholder="姓名(中文)" class="p-2 text-black rounded w-64 mb-2" />
-      <input id="pwdInput" type="password" placeholder="管理员密码" class="p-2 text-black rounded w-64 mb-2 hidden" />
-      <button id="loginBtn" class="px-4 py-2 rounded bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:opacity-90">登录</button>
-    </div>
-
-    <!-- 主界面 -->
-    <div id="mainApp" class="hidden">
-      <div class="flex justify-between items-center mb-4">
-        <h2 class="text-xl font-bold">欢迎，<span id="meName"></span></h2>
-        <span id="onlineInfo" class="text-sm text-gray-300"></span>
-      </div>
-      <div class="grid grid-cols-4 gap-2 mb-4">
-        <button data-tab="news" class="tab p-2 rounded bg-indigo-700">新闻</button>
-        <button data-tab="photos" class="tab p-2 rounded bg-indigo-700">照片</button>
-        <button data-tab="videos" class="tab p-2 rounded bg-indigo-700">视频</button>
-        <button data-tab="wishes" class="tab p-2 rounded bg-indigo-700">愿望池</button>
-      </div>
-      <div id="contentArea" class="space-y-4"></div>
-
-      <!-- 管理员面板 -->
-      <div id="adminPanel" class="hidden mt-6 p-4 bg-gray-800 rounded">
-        <h3 class="font-bold mb-2">管理员操作</h3>
-        <div class="grid grid-cols-2 gap-4">
+<body class="bg-gradient-to-br from-gray-900 via-purple-900 to-indigo-900 text-gray-100 min-h-screen">
+  <div class="container mx-auto p-6">
+    <div class="glass p-6 rounded-2xl shadow-xl">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center space-x-3">
+          <img src="/logo.png" alt="Logo" class="w-12 h-12 rounded" />
           <div>
-            <h4 class="font-semibold">发布新闻</h4>
-            <input id="newsTitle" placeholder="标题" class="w-full p-1 text-black rounded mb-1" />
-            <textarea id="newsContent" placeholder="正文" class="w-full p-1 text-black rounded mb-1"></textarea>
-            <input id="newsImageFile" type="file" class="mb-1" />
-            <button id="postNews" class="px-2 py-1 bg-green-600 rounded">发布新闻</button>
+            <h1 class="text-2xl font-bold">云善绘 团队空间</h1>
+            <div class="text-sm text-gray-300">升级版：评论、回复、点赞、搜索、置顶</div>
           </div>
-          <div>
-            <h4 class="font-semibold">上传媒体</h4>
-            <input id="fileInput" type="file" class="mb-1" />
-            <button id="uploadBtn" class="px-2 py-1 bg-blue-600 rounded">上传照片/视频</button>
+        </div>
+        <div class="text-right">
+          <div id="userBox"></div>
+          <div id="onlineInfo" class="text-sm text-gray-300 mt-1"></div>
+        </div>
+      </div>
+
+      <!-- 登录 -->
+      <div id="loginArea" class="mb-4">
+        <input id="nameInput" placeholder="姓名(中文)" class="p-2 rounded text-black mr-2" />
+        <input id="pwdInput" type="password" placeholder="管理员密码" class="p-2 rounded text-black mr-2 hidden" />
+        <button id="loginBtn" class="px-3 py-2 bg-indigo-600 rounded">登录</button>
+        <input id="searchInput" placeholder="搜索新闻 / 愿望 / 评论" class="ml-4 p-2 rounded text-black w-64" />
+        <button id="searchBtn" class="px-3 py-2 bg-gray-700 rounded ml-2">搜索</button>
+      </div>
+
+      <div id="appArea" class="hidden">
+        <div class="grid grid-cols-4 gap-4 mb-4">
+          <button class="tab p-3 rounded bg-indigo-700" data-tab="news">新闻</button>
+          <button class="tab p-3 rounded bg-indigo-700" data-tab="photos">照片</button>
+          <button class="tab p-3 rounded bg-indigo-700" data-tab="videos">视频</button>
+          <button class="tab p-3 rounded bg-indigo-700" data-tab="wishes">愿望池</button>
+        </div>
+
+        <div id="contentArea"></div>
+
+        <div id="adminPanel" class="hidden mt-6 p-4 bg-gray-800 rounded">
+          <h3 class="font-bold mb-2">管理员操作</h3>
+          <div class="grid grid-cols-3 gap-4">
+            <div>
+              <h4 class="font-semibold">发布新闻</h4>
+              <input id="newsTitle" placeholder="标题" class="w-full p-1 text-black rounded mb-1" />
+              <textarea id="newsContent" placeholder="正文" class="w-full p-1 text-black rounded mb-1"></textarea>
+              <select id="newsTag" class="w-full p-1 rounded mb-1 text-black">
+                <option>公告</option><option>活动</option><option>学习</option><option>其他</option>
+              </select>
+              <label class="inline-flex items-center small"><input id="newsPinned" type="checkbox" class="mr-2">置顶</label>
+              <input id="newsImageFile" type="file" class="w-full mt-1 mb-1" />
+              <button id="postNews" class="px-2 py-1 bg-green-600 rounded">发布新闻</button>
+            </div>
+            <div>
+              <h4 class="font-semibold">上传媒体</h4>
+              <input id="fileInput" type="file" class="w-full mb-1" />
+              <button id="uploadBtn" class="px-2 py-1 bg-blue-600 rounded">上传照片/视频</button>
+            </div>
+            <div>
+              <h4 class="font-semibold">其他</h4>
+              <div class="mb-2">
+                <label class="small">删除新闻 ID：</label>
+                <input id="delNewsId" class="p-1 text-black rounded w-full mb-1" />
+                <button id="delNewsBtn" class="px-2 py-1 bg-red-600 rounded w-full">删除新闻</button>
+              </div>
+              <div>
+                <label class="small">删除媒体 ID：</label>
+                <input id="delMediaId" class="p-1 text-black rounded w-full mb-1" />
+                <button id="delMediaBtn" class="px-2 py-1 bg-red-600 rounded w-full">删除媒体</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+
     </div>
   </div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-const socket = io();
-let meName=null; let role='user';
-let currentTab='news';
+let socket = null;
+let meName = null;
+let role = 'user';
+let currentTab = 'news';
+let currentData = {news:[],media:[],wishes:[]};
 
-const nameInput=document.getElementById('nameInput');
-const pwdInput=document.getElementById('pwdInput');
-const loginBtn=document.getElementById('loginBtn');
+function el(id){ return document.getElementById(id); }
 
-// 输入管理员时显示密码框
-nameInput.addEventListener('input',()=>{
-  if(nameInput.value.trim()==='管理员'){
-    pwdInput.classList.remove('hidden');
-  } else {
-    pwdInput.classList.add('hidden'); pwdInput.value='';
-  }
+function setUserBox(){ el('userBox').innerHTML = meName ? ('当前：<strong>'+meName+'</strong> ('+role+') <button id="logoutBtn" class="ml-2 px-2 py-1 bg-gray-700 rounded small">登出</button>') : '未登录'; if(el('logoutBtn')) el('logoutBtn').onclick = ()=>location.reload(); }
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  socket = io();
+  el('loginBtn').addEventListener('click', loginHandler);
+  el('nameInput').addEventListener('input', ()=>{
+    if(el('nameInput').value.trim() === '管理员') el('pwdInput').classList.remove('hidden');
+    else el('pwdInput').classList.add('hidden');
+  });
+  el('searchBtn').addEventListener('click', doSearch);
+
+  document.querySelectorAll('.tab').forEach(b=> b.addEventListener('click', ()=>{ document.querySelectorAll('.tab').forEach(x=>x.classList.remove('ring-4')); b.classList.add('ring-4'); currentTab = b.dataset.tab; render(); }));
+
+  // admin actions
+  el('postNews').addEventListener('click', postNews);
+  el('uploadBtn').addEventListener('click', uploadMedia);
+  el('delNewsBtn').addEventListener('click', async ()=>{ const id=el('delNewsId').value.trim(); if(!id) return alert('填 id'); await fetch('/news/'+id,{method:'DELETE'}); });
+  el('delMediaBtn').addEventListener('click', async ()=>{ const id=el('delMediaId').value.trim(); if(!id) return alert('填 id'); await fetch('/media/'+id,{method:'DELETE'}); });
 });
 
-loginBtn.onclick=async()=>{
-  const name=nameInput.value.trim();
-  const pwd=pwdInput.value;
-  const res=await fetch('/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,password:pwd})});
-  const data=await res.json();
-  if(data.success){
-    meName=name; role=data.role;
-    document.getElementById('loginBox').classList.add('hidden');
-    document.getElementById('mainApp').classList.remove('hidden');
-    document.getElementById('meName').innerText=meName;
-    if(role==='admin') document.getElementById('adminPanel').classList.remove('hidden');
-    socket.emit('register',meName);
-  } else alert(data.msg||'登录失败');
-};
+async function loginHandler(){
+  const name = el('nameInput').value.trim();
+  const pwd = el('pwdInput').value;
+  if(!/^[\u4e00-\u9fa5]{2,}$/.test(name)) return alert('姓名须为中文且至少2个字');
+  const res = await fetch('/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,password:pwd})});
+  const data = await res.json();
+  if(!data.success) return alert(data.msg || '登录失败');
+  meName = name; role = data.role;
+  el('loginArea').classList.add('hidden');
+  el('appArea').classList.remove('hidden');
+  if(role === 'admin') el('adminPanel').classList.remove('hidden');
+  setUserBox();
+  socket.emit('register', meName);
+  // get initial data
+  const d = await fetch('/data').then(r=>r.json());
+  currentData = d; render();
+}
 
-// 渲染函数
-function renderData(d){
+function render(){
+  // ensure pinned news first
+  const d = currentData || {news:[],media:[],wishes:[]};
+  const news = d.news.slice().sort((a,b)=> (b.pinned?1:0) - (a.pinned?1:0));
   let html='';
   if(currentTab==='news'){
-    d.news.forEach(n=>{
-      html+=`<div class="p-3 bg-gray-800 rounded">
-        <h4 class="font-bold">${n.title}</h4>
-        <p>${n.content}</p>
-        ${n.image?`<img src="${n.image}" class="mt-2 max-h-60"/>`:''}
-        <div class="text-sm text-gray-400">👍 ${n.likes||0}</div>
+    if(news.length===0) html = '<p class="text-gray-400">暂无新闻</p>';
+    news.forEach(n=>{
+      html += `<div class="p-4 bg-gray-800 rounded mb-3">
+        <div class="flex justify-between items-start">
+          <div>
+            <h3 class="font-bold">${escapeHtml(n.title)} ${n.pinned?'<span class="text-xs text-yellow-300">[置顶]</span>':''}</h3>
+            <div class="text-xs text-gray-400">${n.tag || ''} • ${new Date(n.date).toLocaleString()}</div>
+          </div>
+          <div class="text-right small">👍 ${n.likes||0} <button onclick="likeItem('news','${n.id}')" class="ml-2 px-2 py-1 bg-gray-700 rounded small">点赞</button></div>
+        </div>
+        <div class="mt-2">${escapeHtml(n.content)}</div>
+        ${n.image?`<img src="${n.image}" class="mt-2 max-h-60 rounded">`:''}
+        <div class="mt-3">${renderComments(n,'news')}</div>
+        ${role==='admin'?`<div class="mt-2"><button onclick="pinNews('${n.id}',!${n.pinned})" class="px-2 py-1 bg-yellow-600 rounded small">${n.pinned?'取消置顶':'置顶'}</button> <button onclick="deleteNews('${n.id}')" class="px-2 py-1 bg-red-600 rounded small">删除</button></div>`:''}
       </div>`;
     });
   } else if(currentTab==='photos'){
-    html+='<div class="grid grid-cols-3 gap-2">';
-    d.media.filter(m=>m.type==='image').forEach(m=>{
-      html+=`<div class="relative"><img src="${m.filename}" class="rounded"/><div class="text-xs text-gray-300">👍 ${m.likes||0}</div></div>`;
-    });
-    html+='</div>';
+    const imgs = d.media.filter(m=>m.type==='image');
+    if(imgs.length===0) html = '<p class="text-gray-400">暂无照片</p>';
+    else{
+      html += '<div class="grid grid-cols-3 gap-3">';
+      imgs.forEach(m=>{ html += `<div class="bg-gray-800 p-2 rounded"><img src="${m.filename}" class="w-full h-48 object-cover rounded"><div class="text-xs text-gray-300 mt-1">👍 ${m.likes||0} <button onclick="likeItem('media','${m.id}')" class="ml-2 px-2 py-1 bg-gray-700 rounded small">点赞</button></div></div>`; });
+      html += '</div>';
+    }
   } else if(currentTab==='videos'){
-    html+='<div class="grid grid-cols-2 gap-2">';
-    d.media.filter(m=>m.type==='video').forEach(m=>{
-      html+=`<div><video controls src="${m.filename}" class="w-full rounded"></video><div class="text-xs text-gray-300">👍 ${m.likes||0}</div></div>`;
-    });
-    html+='</div>';
+    const vids = d.media.filter(m=>m.type==='video');
+    if(vids.length===0) html = '<p class="text-gray-400">暂无视频</p>';
+    else{
+      html += '<div class="grid grid-cols-2 gap-3">';
+      vids.forEach(m=>{ html += `<div class="bg-gray-800 p-2 rounded"><video src="${m.filename}" controls class="w-full rounded"></video><div class="text-xs text-gray-300 mt-1">👍 ${m.likes||0} <button onclick="likeItem('media','${m.id}')" class="ml-2 px-2 py-1 bg-gray-700 rounded small">点赞</button></div></div>`; });
+      html += '</div>';
+    }
   } else if(currentTab==='wishes'){
+    if(d.wishes.length===0) html = '<p class="text-gray-400">暂无愿望</p>';
     d.wishes.forEach(w=>{
-      html+=`<div class="p-3 bg-gray-800 rounded"><p>${w.text}</p><div class="text-sm text-gray-400">${w.name} 👍 ${w.likes||0}</div></div>`;
+      html += `<div class="p-3 bg-gray-800 rounded mb-2">
+        <div class="flex justify-between"><div><strong>${escapeHtml(w.name)}</strong><div class="text-xs text-gray-400">${new Date(w.date).toLocaleString()}</div></div><div class="small">👍 ${w.likes||0} <button onclick="likeItem('wishes','${w.id}')" class="ml-2 px-2 py-1 bg-gray-700 rounded small">点赞</button></div></div>
+        <div class="mt-2">${escapeHtml(w.text)}</div>
+        <div class="mt-2">${renderComments(w,'wishes')}</div>
+        ${role==='admin'?`<div class="mt-2"><button onclick="deleteWish('${w.id}')" class="px-2 py-1 bg-red-600 rounded small">删除</button></div>`:''}
+      </div>`;
     });
   }
-  document.getElementById('contentArea').innerHTML=html||'<p class="text-gray-400">暂无数据</p>';
+  el('contentArea').innerHTML = html;
 }
 
-// Tab 切换
-document.querySelectorAll('.tab').forEach(btn=>{
-  btn.onclick=()=>{
-    currentTab=btn.dataset.tab;
-    renderData(window.currentData||{news:[],media:[],wishes:[]});
-  }
-});
+function renderComments(item,type){
+  const comments = item.comments || [];
+  let html = `<div class="space-y-2">`;
+  html += comments.map(c=>{
+    const replies = (c.replies||[]).map(r=>`<div class="ml-4 text-sm text-gray-300">↳ <strong>${escapeHtml(r.name)}</strong>: ${escapeHtml(r.text)} <span class="text-xs text-gray-500">(${new Date(r.date).toLocaleString()})</span></div>`).join('');
+    return `<div class="p-2 bg-gray-900 rounded">
+      <div class="flex justify-between"><div class="text-sm"><strong>${escapeHtml(c.name)}</strong> <span class="text-xs text-gray-500">(${new Date(c.date).toLocaleString()})</span></div>
+      <div class="small">👍 ${c.likes||0} <button onclick="likeComment('${type}','${item.id}','${c.id}')" class="ml-2 px-2 py-1 bg-gray-700 rounded small">赞评论</button></div></div>
+      <div class="mt-1">${escapeHtml(c.text)}</div>
+      ${replies}
+      <div class="mt-2 flex space-x-2"><input id="input_c_${item.id}_${c.id}" placeholder="回复..." class="p-1 text-black rounded w-2/3" /><button onclick="postReply('${type}','${item.id}','${c.id}')" class="px-2 py-1 bg-indigo-600 rounded small">回复</button></div>
+    </div>`;
+  }).join('');
+  // add new comment box
+  html += `<div class="mt-2 flex space-x-2"><input id="input_new_${type}_${item.id}" placeholder="写评论..." class="p-1 text-black rounded w-2/3" /><button onclick="postComment('${type}','${item.id}')" class="px-2 py-1 bg-green-600 rounded small">发表评论</button></div>`;
+  html += `</div>`;
+  return html;
+}
 
-// 更新数据
-socket.on('update', d=>{
-  window.currentData=d;
-  renderData(d);
-});
-socket.on('onlineUsers', list=>{
-  document.getElementById('onlineInfo').innerText='在线: '+list.length+'人: '+list.join(',');
-});
+function escapeHtml(s){ if(!s) return ''; return String(s).replace(/[&<>"']/g,function(m){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]);}); }
+
+// actions
+async function postNews(){
+  const title = el('newsTitle').value.trim();
+  const content = el('newsContent').value.trim();
+  const tag = el('newsTag').value;
+  const pinned = el('newsPinned').checked;
+  if(!title) return alert('请输入标题');
+  let imageUrl = null;
+  const f = el('newsImageFile').files[0];
+  if(f){
+    const fd = new FormData(); fd.append('file', f); fd.append('type','image');
+    const res = await fetch('/upload',{method:'POST',body:fd}); const j = await res.json();
+    if(j.success) imageUrl = j.item.filename;
+  }
+  await fetch('/news',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,content,image:imageUrl,tag,pinned})});
+  alert('发布成功');
+}
+
+async function uploadMedia(){
+  const f = el('fileInput').files[0]; if(!f) return alert('请选择文件');
+  const fd = new FormData(); fd.append('file',f); fd.append('type', f.type.startsWith('video')?'video':'image');
+  const res = await fetch('/upload',{method:'POST',body:fd}); const j = await res.json();
+  if(j.success) alert('上传成功'); else alert('上传失败');
+}
+
+async function likeItem(type,id){
+  await fetch('/like',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,id,name:meName||'匿名'})});
+}
+
+async function postComment(type,id){
+  const elIn = el('input_new_'+type+'_'+id);
+  const text = elIn.value.trim(); if(!text) return;
+  await fetch('/comment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,id,name:meName||'匿名',text})});
+  elIn.value='';
+}
+
+async function postReply(type,id,commentId){
+  const elIn = el('input_c_'+id+'_'+commentId) || el('input_c_'+item.id+'_'+commentId);
+  // but we created ids as input_c_<item.id>_<c.id>
+  const inputEl = el('input_c_'+id+'_'+commentId);
+  const text = inputEl ? inputEl.value.trim() : '';
+  if(!text) return;
+  await fetch('/reply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,id,commentId,name:meName||'匿名',text})});
+  inputEl.value='';
+}
+
+async function likeComment(type,id,commentId){
+  await fetch('/likeComment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,id,commentId,name:meName||'匿名'})});
+}
+
+async function pinNews(id,pinned){
+  await fetch('/pinNews',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,pinned})});
+}
+
+async function deleteNews(id){
+  if(!confirm('确认删除？')) return;
+  await fetch('/news/'+id,{method:'DELETE'});
+}
+
+async function deleteWish(id){
+  if(!confirm('确认删除？')) return;
+  await fetch('/wish/'+id,{method:'DELETE'});
+}
+
+async function doSearch(){
+  const q = el('searchInput').value.trim();
+  if(!q) return alert('请输入关键词');
+  const res = await fetch('/search?q='+encodeURIComponent(q)); const j = await res.json();
+  if(!j.success) return alert('搜索失败');
+  // show results (simple)
+  currentData = {news:j.results.news, media:[], wishes:j.results.wishes};
+  currentTab = 'news'; render();
+  // also allow switching to wishes
+  if(j.results.wishes.length) currentTab='news';
+}
+
+socketInit();
+function socketInit(){
+  socket = io();
+  socket.on('connect', ()=>{ console.log('socket connected'); });
+  socket.on('update', d=>{ currentData = d; render(); });
+  socket.on('onlineUsers', list=>{ el('onlineInfo').innerText = '在线: '+list.length+'人'; });
+}
 </script>
 </body>
 </html>
