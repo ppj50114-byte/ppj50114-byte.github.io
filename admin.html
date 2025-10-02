@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>管理员 - 团队空间</title>
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gradient-to-br from-gray-900 via-purple-800 to-indigo-900 text-white min-h-screen">
+  <div class="container mx-auto p-6">
+    <div class="flex justify-between items-center mb-4">
+      <h1 class="text-2xl font-bold">管理员后台</h1>
+      <div><button id="logout" class="px-3 py-1 bg-gray-700 rounded">注销</button></div>
+    </div>
+
+    <div class="grid grid-cols-3 gap-4">
+      <div class="col-span-2">
+        <div class="bg-white bg-opacity-6 p-4 rounded mb-4">
+          <h3 class="font-bold">发布新闻</h3>
+          <input id="newsTitle" class="w-full p-2 text-black rounded mb-2" placeholder="标题" />
+          <textarea id="newsContent" class="w-full p-2 text-black rounded mb-2" placeholder="正文"></textarea>
+          <label class="inline-flex items-center text-sm"><input id="newsPinned" type="checkbox" class="mr-2">置顶</label>
+          <input id="newsImage" type="file" class="w-full mt-2 mb-2" />
+          <button id="publishNews" class="px-3 py-2 bg-green-600 rounded">发布新闻</button>
+        </div>
+
+        <div id="manageMedia" class="bg-white bg-opacity-6 p-4 rounded mb-4">
+          <h3 class="font-bold">媒体列表（删除）</h3>
+          <div id="mediaManageList"></div>
+        </div>
+
+        <div id="manageNews" class="bg-white bg-opacity-6 p-4 rounded mb-4">
+          <h3 class="font-bold">新闻列表（删除/置顶）</h3>
+          <div id="newsManageList"></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="bg-white bg-opacity-6 p-4 rounded mb-4">
+          <h3 class="font-bold">统计栏</h3>
+          <div id="onlineList" class="text-sm text-gray-300 mb-2"></div>
+          <div id="todayStats" class="text-sm text-gray-300"></div>
+          <input id="exportMonth" class="w-full p-1 text-black rounded mb-2" placeholder="YYYY-MM" />
+          <button id="exportBtn" class="px-3 py-2 bg-yellow-500 rounded w-full">导出 CSV</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+document.getElementById('logout').addEventListener('click', ()=> location.href = '/');
+async function fetchData(){ const d = await fetch('/data').then(r=>r.json()); renderManage(d); }
+function renderManage(d){
+  // news manage
+  const nlist = d.news||[]; let nh=''; nlist.forEach(n=> nh += `<div class="p-2 bg-gray-900 rounded mb-2"><div class="flex justify-between"><div><strong>${escape(n.title)}</strong><div class="text-xs text-gray-400">${new Date(n.date).toLocaleString()}</div></div><div><button onclick="pin('news','${n.id}',${n.pinned?0:1})" class="px-2 py-1 bg-yellow-500 rounded text-sm mr-2">${n.pinned?'取消置顶':'置顶'}</button><button onclick="deleteItem('news','${n.id}')" class="px-2 py-1 bg-red-600 rounded text-sm">删除</button></div></div></div>`); document.getElementById('newsManageList').innerHTML = nh;
+  // media manage
+  const mlist = d.media||[]; let mh=''; mlist.forEach(m=> mh += `<div class="p-2 bg-gray-900 rounded mb-2"><div class="flex justify-between"><div><strong>${escape(m.originalName)}</strong><div class="text-xs text-gray-400">${new Date(m.date).toLocaleString()}</div></div><div><button onclick="deleteItem('media','${m.id}')" class="px-2 py-1 bg-red-600 rounded text-sm">删除</button></div></div></div>`); document.getElementById('mediaManageList').innerHTML = mh;
+}
+function escape(s){ if(!s) return ''; return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+async function publishNews(){
+  const title = document.getElementById('newsTitle').value.trim(); const content = document.getElementById('newsContent').value.trim(); const pinned = document.getElementById('newsPinned').checked;
+  if(!title) return alert('请输入标题');
+  let imageUrl = null; const f = document.getElementById('newsImage').files[0];
+  if(f){ const fd = new FormData(); fd.append('file', f); fd.append('type','image'); fd.append('author','管理员'); const r = await fetch('/upload',{method:'POST',body:fd}); const j = await r.json(); if(j.success) imageUrl = j.item.filename; }
+  await fetch('/news',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,content,image:imageUrl,author:'管理员',pinned})}); alert('发布成功'); document.getElementById('newsTitle').value=''; document.getElementById('newsContent').value=''; }
+async function deleteItem(type,id){ if(!confirm('确认删除？')) return; await fetch('/'+type+'/'+id,{method:'DELETE'}); alert('删除成功'); }
+async function pin(type,id,pinned){ await fetch('/pin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,id,pinned})}); alert('置顶已更新'); }
+document.getElementById('publishNews').addEventListener('click', publishNews);
+document.getElementById('exportBtn').addEventListener('click', ()=>{ const m = document.getElementById('exportMonth').value.trim() || new Date().toISOString().slice(0,7); window.location = '/stats/export?month='+encodeURIComponent(m); });
+
+socket.on('update', d=> fetchData());
+socket.on('online', list=>{ document.getElementById('onlineList').innerText = '在线: ' + list.length + ' 人\n' + list.join(', '); });
+fetchData();
+</script>
+</body></html>

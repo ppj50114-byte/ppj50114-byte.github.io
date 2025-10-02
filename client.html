@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>客户 - 团队空间</title>
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+<style>.modal{position:fixed;left:0;top:0;right:0;bottom:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.75);z-index:60}.modal-inner{max-width:95%;max-height:95%}</style>
+</head>
+<body class="bg-gradient-to-br from-gray-900 via-purple-800 to-indigo-900 text-white min-h-screen">
+  <div class="container mx-auto p-6">
+    <div class="flex justify-between items-center mb-4">
+      <h1 class="text-2xl font-bold">客户界面</h1>
+      <div><span id="meName" class="mr-4"></span><button id="logout" class="px-3 py-1 bg-gray-700 rounded">注销</button></div>
+    </div>
+    <div class="grid grid-cols-3 gap-4">
+      <div class="col-span-2">
+        <div id="newsList" class="mb-4"></div>
+        <div id="mediaList" class="mb-4"></div>
+        <div id="wishesList" class="mb-4"></div>
+      </div>
+      <div>
+        <div class="bg-white bg-opacity-6 p-4 rounded mb-4">
+          <h3 class="font-bold mb-2">发布愿望</h3>
+          <input id="wishText" class="w-full p-2 text-black rounded mb-2" placeholder="想要许下的愿望..." />
+          <label class="inline-flex items-center text-sm"><input id="wishAnon" type="checkbox" class="mr-2">匿名</label>
+          <button id="postWish" class="mt-3 px-3 py-2 bg-green-600 rounded">发布愿望</button>
+        </div>
+        <div class="bg-white bg-opacity-6 p-4 rounded">
+          <h3 class="font-bold mb-2">上传照片/视频</h3>
+          <input id="mediaFile" type="file" class="mb-2" />
+          <button id="uploadBtn" class="px-3 py-2 bg-blue-600 rounded">上传</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal" class="modal"><div class="modal-inner bg-black p-2 rounded"><div id="modalContent"></div><div class="text-right mt-2"><button id="closeModal" class="px-3 py-1 bg-gray-700 rounded">关闭</button></div></div></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+let me = new URLSearchParams(location.search).get('name') || '客户';
+document.getElementById('meName').innerText = me;
+document.getElementById('logout').addEventListener('click', ()=> location.href = '/');
+
+async function fetchData(){ const d = await fetch('/data').then(r=>r.json()); renderAll(d); }
+function renderAll(d){
+  renderNews(d.news||[]); renderMedia(d.media||[]); renderWishes(d.wishes||[]);
+}
+function renderNews(list){
+  const container = document.getElementById('newsList');
+  if(!list.length){ container.innerHTML='<p class="text-gray-300">暂无新闻</p>'; return; }
+  let html='';
+  list.forEach(n=>{
+    html += `<div class="bg-white bg-opacity-6 p-4 rounded mb-3"><div class="flex justify-between"><div><h3 class="font-bold">${escape(n.title)} ${n.pinned?'<span class="text-yellow-300 text-sm">[置顶]</span>':''}</h3><div class="text-xs text-gray-300">${escape(n.author)} • ${new Date(n.date).toLocaleString()}</div></div><div><button class="px-2 py-1 bg-gray-700 rounded" onclick="like('news','${n.id}')">👍 ${n.likes||0}</button></div></div><div class="mt-2">${escape(n.content)}</div>${n.image?`<img src="${n.image}" class="mt-2 max-h-60 rounded cursor-pointer" onclick="openModal('image','${n.image}')">`:''}<div class="mt-3">${renderComments(n,'news')}</div></div>`;
+  });
+  container.innerHTML = html;
+}
+function renderMedia(list){
+  const container = document.getElementById('mediaList');
+  if(!list.length){ container.innerHTML='<p class="text-gray-300">暂无媒体</p>'; return; }
+  let html='';
+  list.forEach(m=>{
+    if(m.type==='image'){
+      html += `<div class="bg-white bg-opacity-6 p-3 rounded mb-3"><img src="${m.filename}" class="w-full h-48 object-cover rounded cursor-pointer" onclick="openModal('image','${m.filename}')"><div class="mt-2 text-xs text-gray-300">发布: ${escape(m.author)} • 👍 ${m.likes||0} <button class="ml-2 px-2 py-1 bg-gray-700 rounded" onclick="like('media','${m.id}')">点赞</button></div><div class="mt-2">${renderComments(m,'media')}</div></div>`;
+    } else {
+      html += `<div class="bg-white bg-opacity-6 p-3 rounded mb-3"><video src="${m.filename}" controls class="w-full rounded cursor-pointer" onclick="openModal('video','${m.filename}')"></video><div class="mt-2 text-xs text-gray-300">发布: ${escape(m.author)} • 👍 ${m.likes||0} <button class="ml-2 px-2 py-1 bg-gray-700 rounded" onclick="like('media','${m.id}')">点赞</button></div><div class="mt-2">${renderComments(m,'media')}</div></div>`;
+    }
+  });
+  container.innerHTML = html;
+}
+function renderWishes(list){
+  const container = document.getElementById('wishesList');
+  if(!list.length){ container.innerHTML='<p class="text-gray-300">暂无愿望</p>'; return; }
+  let html='';
+  list.forEach(w=>{
+    html += `<div class="bg-white bg-opacity-6 p-3 rounded mb-2"><div class="flex justify-between"><div><strong>${escape(w.name)}</strong><div class="text-xs text-gray-300">${new Date(w.date).toLocaleString()}</div></div><div>👍 ${w.likes||0} <button class="ml-2 px-2 py-1 bg-gray-700 rounded" onclick="like('wishes','${w.id}')">点赞</button></div></div><div class="mt-2">${escape(w.text)}</div><div class="mt-2">${renderComments(w,'wishes')}</div></div>`;
+  });
+  container.innerHTML = html;
+}
+function renderComments(item,type){
+  const comments = item.comments||[]; let html='';
+  comments.slice().reverse().forEach(c=>{
+    let replies=''; (c.replies||[]).forEach(r=> replies += `<div class="ml-4 text-sm text-gray-300">↳ <strong>${escape(r.name)}</strong>: ${escape(r.text)}</div>`);
+    html += `<div class="p-2 bg-gray-900 rounded mt-2"><div class="flex justify-between"><div><strong>${escape(c.name)}</strong> <span class="text-xs text-gray-500">(${new Date(c.date).toLocaleString()})</span></div><div>👍 ${c.likes||0} <button onclick="likeComment('${type}','${item.id}','${c.id}')" class="ml-2 px-2 py-1 bg-gray-700 rounded text-xs">赞评论</button></div></div><div class="mt-1">${escape(c.text)}</div>${replies}<div class="mt-2 flex space-x-2"><input id="reply_${item.id}_${c.id}" placeholder="回复..." class="p-1 text-black rounded w-2/3" /><button onclick="postReply('${type}','${item.id}','${c.id}')" class="px-2 py-1 bg-indigo-600 rounded text-xs">回复</button></div></div>`;
+  });
+  html += `<div class="mt-3 flex space-x-2"><input id="newc_${type}_${item.id}" placeholder="写评论..." class="p-1 text-black rounded w-2/3" /><button onclick="postComment('${type}','${item.id}')" class="px-2 py-1 bg-green-600 rounded text-xs">发表评论</button></div>`;
+  return html;
+}
+
+function escape(s){ if(!s) return ''; return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+// actions
+async function postWish(){ const text = document.getElementById('wishText').value.trim(); const anon = document.getElementById('wishAnon').checked; if(!text) return alert('请输入愿望'); await fetch('/wish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name: me, text, anonymous: anon})}); document.getElementById('wishText').value=''; }
+async function uploadMedia(){ const f = document.getElementById('mediaFile').files[0]; if(!f) return alert('请选择文件'); const fd = new FormData(); fd.append('file', f); fd.append('type', f.type.startsWith('video')?'video':'image'); fd.append('author', me); const r = await fetch('/upload',{method:'POST',body:fd}); const j = await r.json(); if(j.success) alert('上传成功'); else alert('上传失败'); }
+async function like(type,id){ await fetch('/like',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,id,name:me})}); }
+async function postComment(type,id){ const inp = document.getElementById('newc_'+type+'_'+id); const text = inp.value.trim(); if(!text) return; await fetch('/comment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,id,name:me,text})}); inp.value=''; }
+async function postReply(type,id,commentId){ const inp = document.getElementById('reply_'+id+'_'+commentId); const text = inp.value.trim(); if(!text) return; await fetch('/reply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,id,commentId,name:me,text})}); inp.value=''; }
+async function likeComment(type,id,commentId){ await fetch('/likeComment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,id,commentId,name:me})}); }
+
+function openModal(kind,src){ const modal = document.getElementById('modal'); const inner = document.getElementById('modalContent'); modal.style.display='flex'; if(kind==='image') inner.innerHTML = `<img src="${src}" class="max-w-full max-h-[80vh] rounded">`; else inner.innerHTML = `<video src="${src}" controls autoplay class="max-w-full max-h-[80vh] rounded"></video>`; }
+document.getElementById('closeModal').addEventListener('click', ()=> document.getElementById('modal').style.display='none');
+
+// socket realtime update
+socket.on('update', d=> renderAll(d));
+socket.on('connect', ()=> console.log('connected'));
+
+// fetch regularly for safety
+setInterval(fetchData, 2000);
+fetchData();
+</script>
+</body></html>
