@@ -1,202 +1,62 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>云善绘 团队空间 — 完整版</title>
-<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-<style>
-  body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial; background:linear-gradient(180deg,#1e1b2b,#3b1e56); color:#fff; min-height:100vh;}
-  .glass{background:rgba(255,255,255,0.03);backdrop-filter: blur(6px); border-radius:14px;}
-  .modal{position:fixed;left:0;top:0;right:0;bottom:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);z-index:60;}
-  .modal-inner{max-width:95%;max-height:95%;}
-  .btn{background:#5b4bd9;padding:8px 12px;border-radius:8px;}
-  .small{font-size:0.85rem;}
-</style>
+  <meta charset="UTF-8">
+  <title>登录</title>
+  <style>
+    body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background: #f0f2f5; }
+    .login-box { background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,.1); width: 300px; text-align: center; }
+    input { display: block; width: 100%; margin: 10px 0; padding: 10px; border-radius: 6px; border: 1px solid #ccc; }
+    button { padding: 10px; width: 100%; background: #007bff; border: none; color: white; border-radius: 6px; cursor: pointer; }
+    button:hover { background: #0056b3; }
+    #error { color: red; margin-top: 10px; }
+  </style>
 </head>
 <body>
-<div class="container mx-auto p-6">
-  <div id="loginView" class="max-w-xl mx-auto glass p-6 mt-12">
-    <h1 class="text-3xl font-bold mb-4">云善绘 团队空间 — 登录</h1>
-    <div class="mb-3"><input id="loginName" placeholder="请输入姓名 (中文)" class="w-full p-2 rounded text-black" /></div>
-    <div class="mb-3"><input id="loginPwd" placeholder="管理员密码（管理员输入）" type="password" class="w-full p-2 rounded text-black" /></div>
-    <div class="flex space-x-3"><button id="loginBtn" class="btn">登录</button><button id="visitBtn" class="bg-gray-700 px-3 py-2 rounded">游客进入</button></div>
-    <p class="text-sm text-gray-300 mt-3">管理员用户名为 <strong>管理员</strong>，请正确输入管理员密码。</p>
+  <div class="login-box">
+    <h2>登录</h2>
+    <input type="text" id="name" placeholder="请输入名字">
+    <input type="password" id="password" placeholder="请输入密码（仅管理员）" style="display:none;">
+    <button onclick="login()">登录</button>
+    <div id="error"></div>
   </div>
 
-  <div id="appView" class="hidden">
-    <div class="glass p-6 rounded mb-4">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center space-x-4">
-          <img id="logoImg" src="/logo.png" class="w-12 h-12 rounded" onerror="this.style.display='none'"/>
-          <div><h2 class="text-2xl font-bold">云善绘 团队空间</h2><div id="welcome" class="text-sm text-gray-300">欢迎</div></div>
-        </div>
-        <div class="text-right small"><div id="userBox">未登录</div><div id="onlineBox" class="text-gray-400 small">在线: 0</div></div>
-      </div>
-      <div class="mt-4 space-x-2"><button class="tab btn" data-tab="news">新闻</button><button class="tab btn" data-tab="photos">照片</button><button class="tab btn" data-tab="videos">视频</button><button class="tab btn" data-tab="wishes">愿望池</button><button id="statsTab" class="btn hidden">统计栏(管理员)</button></div>
-    </div>
+  <script>
+    const nameInput = document.getElementById('name');
+    const passwordInput = document.getElementById('password');
+    const errorDiv = document.getElementById('error');
 
-    <div id="mainArea" class="max-w-4xl mx-auto"></div>
+    nameInput.addEventListener('input', () => {
+      if (nameInput.value.trim() === "光明会") {
+        passwordInput.style.display = "block";
+      } else {
+        passwordInput.style.display = "none";
+      }
+    });
 
-    <!-- admin panel -->
-    <div id="adminPanel" class="hidden glass p-4 max-w-4xl mx-auto mt-4">
-      <h3 class="font-bold">管理员操作</h3>
-      <div class="grid grid-cols-2 gap-4 mt-2">
-        <div>
-          <h4>发布新闻</h4>
-          <input id="newsTitle" placeholder="新闻标题" class="w-full p-1 text-black rounded mb-1" />
-          <textarea id="newsContent" placeholder="新闻正文" class="w-full p-1 text-black rounded mb-1"></textarea>
-          <label class="small"><input id="newsPinned" type="checkbox" class="mr-2">置顶</label>
-          <input id="newsImage" type="file" class="w-full mt-1 mb-1" />
-          <button id="postNewsBtn" class="btn">发布新闻</button>
-        </div>
-        <div>
-          <h4>上传媒体</h4>
-          <input id="mediaFile" type="file" class="w-full mb-1" />
-          <button id="uploadMediaBtn" class="btn">上传照片/视频</button>
-          <h4 class="mt-4">导出月报 (YYYY-MM)</h4>
-          <input id="exportMonth" class="w-full p-1 text-black rounded mb-1" placeholder="2025-10" />
-          <button id="exportBtn" class="btn">下载 CSV</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
+    async function login() {
+      const name = nameInput.value.trim();
+      const password = passwordInput.style.display === "block" ? passwordInput.value : null;
 
-<div id="modal" class="modal"><div class="modal-inner bg-black p-2 rounded"><div id="modalContent"></div><div class="text-right mt-2"><button id="closeModal" class="px-3 py-1 bg-gray-700 rounded">关闭</button></div></div></div>
+      const res = await fetch('/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, password })
+      });
+      const data = await res.json();
 
-<script src="/socket.io/socket.io.js"></script>
-<script>
-const socket = io();
-let me = {name:null, role:'user'};
-let dataStore = {news:[], media:[], wishes:[]};
-function el(id){ return document.getElementById(id); }
-
-// UI init
-document.addEventListener('DOMContentLoaded', ()=>{
-  el('loginBtn').addEventListener('click', doLogin);
-  el('visitBtn').addEventListener('click', ()=>{ anonymousVisit(); });
-  el('closeModal').addEventListener('click', ()=>{ el('modal').style.display='none'; });
-  document.querySelectorAll('.tab').forEach(b=> b.addEventListener('click', ()=>{ document.querySelectorAll('.tab').forEach(x=>x.classList.remove('ring')); b.classList.add('ring'); renderTab(b.dataset.tab); }));
-  el('postNewsBtn').addEventListener('click', postNews);
-  el('uploadMediaBtn').addEventListener('click', uploadMedia);
-  el('exportBtn').addEventListener('click', ()=>{ const m=el('exportMonth').value.trim(); window.location='/stats/export?month='+encodeURIComponent(m||new Date().toISOString().slice(0,7)); });
-  el('statsTab').addEventListener('click', showStats);
-  socket.on('update', d=>{ dataStore=d; renderCurrent(); });
-  socket.on('online', list=>{ el('onlineBox').innerText='在线: '+list.length+' 人'; });
-  socket.on('connect', ()=> console.log('socket connected'));
-  // initial fetch
-  fetch('/data').then(r=>r.json()).then(j=>{ dataStore=j; });
-});
-
-function anonymousVisit(){ me.name = '游客'; me.role='user'; enterApp(); }
-
-async function doLogin(){
-  const name = el('loginName').value.trim(); const pwd = el('loginPwd').value;
-  if(!/^[\u4e00-\u9fa5]{2,}$/.test(name)) return alert('姓名须为中文且至少2个字');
-  const res = await fetch('/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name, password: pwd})});
-  const j = await res.json(); if(!j.success) return alert(j.msg || '登录失败');
-  me.name = name; me.role = j.role; addStatLoc('login', me.name, me.role);
-  enterApp();
-}
-
-function enterApp(){
-  el('loginView').style.display='none'; el('appView').style.display='block'; el('userBox').innerText = me.name + ' ('+me.role+')'; if(me.role==='admin'){ el('adminPanel').style.display='block'; el('statsTab').classList.remove('hidden'); }
-  socket.emit('register', me.name);
-  fetch('/data').then(r=>r.json()).then(j=>{ dataStore=j; renderTab('news'); });
-}
-
-function renderCurrent(){ const active = document.querySelector('.tab.ring'); const tab = active ? active.dataset.tab : 'news'; renderTab(tab); }
-
-function renderTab(tab){
-  if(!tab) tab='news';
-  if(tab==='news') renderNews();
-  else if(tab==='photos') renderPhotos();
-  else if(tab==='videos') renderVideos();
-  else if(tab==='wishes') renderWishes();
-}
-
-function renderNews(){
-  const box = el('mainArea'); const list = (dataStore.news||[]).slice();
-  let html = '';
-  if(!list.length) html = '<p class="text-gray-400 p-4">暂无新闻</p>';
-  list.forEach(n=>{
-    html += `<div class="glass p-4 mb-3"><div class="flex justify-between"><div><h3 class="font-bold">${escape(n.title)} ${n.pinned?'<span class="text-yellow-300 small">[置顶]</span>':''}</h3><div class="small text-gray-400">${escape(n.author)} • ${new Date(n.date).toLocaleString()}</div></div><div><button class="small bg-gray-700 px-2 py-1 rounded" onclick="like('news','${n.id}')">👍 ${n.likes||0}</button></div></div><div class="mt-2">${escape(n.content)}</div>${n.image?`<img src="${n.image}" class="mt-2 max-h-60 rounded cursor-pointer" onclick="openModal('image','${n.image}')">`:''}<div class="mt-3">${renderComments(n,'news')}</div>${me.role==='admin'?`<div class="mt-2"><button onclick="pin('news','${n.id}',${n.pinned?0:1})" class="px-2 py-1 bg-yellow-600 rounded small">${n.pinned?'取消置顶':'置顶'}</button><button onclick="deleteItem('news','${n.id}')" class="ml-2 px-2 py-1 bg-red-600 rounded small">删除</button></div>`:''}</div>`;
-  });
-  box.innerHTML = html;
-}
-
-function renderPhotos(){ const box = el('mainArea'); const list = (dataStore.media||[]).filter(m=>m.type==='image'); if(!list.length) { box.innerHTML='<p class="text-gray-400 p-4">暂无照片</p>'; return; } let html=''; list.forEach(m=>{ html+=`<div class="glass p-3 mb-3"><img src="${m.filename}" class="w-full h-48 object-cover rounded cursor-pointer" onclick="openModal('image','${m.filename}')"><div class="mt-2 small text-gray-300">发布: ${escape(m.author)} • 👍 ${m.likes||0} <button class="ml-2 bg-gray-700 px-2 py-1 rounded small" onclick="like('media','${m.id}')">点赞</button></div><div class="mt-2">${renderComments(m,'media')}</div>${me.role==='admin'?`<div class="mt-2"><button onclick="deleteItem('media','${m.id}')" class="px-2 py-1 bg-red-600 rounded small">删除</button></div>`:''}</div>`; }); box.innerHTML=html; }
-
-function renderVideos(){ const box = el('mainArea'); const list = (dataStore.media||[]).filter(m=>m.type==='video'); if(!list.length){ box.innerHTML='<p class="text-gray-400 p-4">暂无视频</p>'; return; } let html=''; list.forEach(m=>{ html+=`<div class="glass p-3 mb-3"><video src="${m.filename}" controls class="w-full rounded cursor-pointer" onclick="openModal('video','${m.filename}')"></video><div class="mt-2 small text-gray-300">发布: ${escape(m.author)} • 👍 ${m.likes||0} <button class="ml-2 bg-gray-700 px-2 py-1 rounded small" onclick="like('media','${m.id}')">点赞</button></div><div class="mt-2">${renderComments(m,'media')}</div>${me.role==='admin'?`<div class="mt-2"><button onclick="deleteItem('media','${m.id}')" class="px-2 py-1 bg-red-600 rounded small">删除</button></div>`:''}</div>`; }); box.innerHTML=html; }
-
-function renderWishes(){ const box = el('mainArea'); const list = (dataStore.wishes||[]); if(!list.length){ box.innerHTML='<p class="text-gray-400 p-4">暂无愿望</p>'; return; } let html=''; list.forEach(w=>{ html+=`<div class="glass p-3 mb-2"><div class="flex justify-between"><div><strong>${escape(w.name)}</strong> <div class="small text-gray-400">${new Date(w.date).toLocaleString()}</div></div><div class="small">👍 ${w.likes||0} <button onclick="like('wishes','${w.id}')" class="ml-2 bg-gray-700 px-2 py-1 rounded small">点赞</button></div></div><div class="mt-2">${escape(w.text)}</div><div class="mt-2">${renderComments(w,'wishes')}</div>${me.role==='admin'?`<div class="mt-2"><button onclick="deleteItem('wishes','${w.id}')" class="px-2 py-1 bg-red-600 rounded small">删除</button></div>`:''}</div>`; }); box.innerHTML=html; }
-
-function renderComments(item,type){
-  const comments = item.comments||[];
-  let html = '<div class="space-y-2">';
-  comments.slice().reverse().forEach(c=>{
-    let replies = '';
-    (c.replies||[]).forEach(r=>{ replies += `<div class="ml-4 text-sm text-gray-300">↳ <strong>${escape(r.name)}</strong>: ${escape(r.text)}</div>`; });
-    html += `<div class="p-2 bg-gray-900 rounded"><div class="flex justify-between"><div><strong>${escape(c.name)}</strong> <span class="text-xs text-gray-500">(${new Date(c.date).toLocaleString()})</span></div><div class="small">👍 ${c.likes||0} <button onclick="likeComment('${type}','${item.id}','${c.id}')" class="ml-2 bg-gray-700 px-2 py-1 rounded small">赞评论</button></div></div><div class="mt-1">${escape(c.text)}</div>${replies}<div class="mt-2 flex space-x-2"><input id="reply_${item.id}_${c.id}" placeholder="回复..." class="p-1 text-black rounded w-2/3" /><button onclick="postReply('${type}','${item.id}','${c.id}')" class="px-2 py-1 bg-indigo-600 rounded small">回复</button>${me.role==='admin'?`<button onclick="deleteComment('${type}','${item.id}','${c.id}')" class="ml-2 px-2 py-1 bg-red-600 rounded small">删除评论</button>`:''}</div></div>`;
-  });
-  html += `<div class="mt-2 flex space-x-2"><input id="newc_${type}_${item.id}" placeholder="写评论..." class="p-1 text-black rounded w-2/3" /><button onclick="postComment('${type}','${item.id}')" class="px-2 py-1 bg-green-600 rounded small">发表评论</button></div>`;
-  html += '</div>';
-  return html;
-}
-
-function escape(s){ if(!s) return ''; return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
-
-// actions
-async function postNews(){
-  if(me.role !== 'admin') return alert('只有管理员能发布新闻');
-  const title = el('newsTitle').value.trim(); const content = el('newsContent').value.trim(); const pinned = el('newsPinned').checked;
-  if(!title) return alert('标题不能为空');
-  let imageUrl = null;
-  const f = el('newsImage').files[0];
-  if(f){ const fd = new FormData(); fd.append('file', f); fd.append('type', 'image'); fd.append('author', me.name); const r = await fetch('/upload', { method:'POST', body: fd }); const j = await r.json(); if(j.success) imageUrl = j.item.filename; }
-  await fetch('/news', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ title, content, image: imageUrl, author: me.name, pinned }) });
-  el('newsTitle').value=''; el('newsContent').value=''; alert('发布成功');
-}
-
-async function uploadMedia(){
-  const f = el('mediaFile').files[0]; if(!f) return alert('请选择文件');
-  const fd = new FormData(); fd.append('file', f); fd.append('type', f.type.startsWith('video')?'video':'image'); fd.append('author', me.name);
-  const r = await fetch('/upload', { method:'POST', body: fd }); const j = await r.json(); if(j.success) alert('上传成功'); else alert('上传失败');
-}
-
-async function like(type,id){
-  await fetch('/like', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ type, id, name: me.name||'匿名' }) });
-}
-
-async function postComment(type,id){
-  const inp = el('newc_'+type+'_'+id); const text = inp.value.trim(); if(!text) return; await fetch('/comment',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ type, id, name: me.name||'匿名', text }) }); inp.value=''; }
-
-async function postReply(type,id,commentId){ const inp = el('reply_'+id+'_'+commentId); const text = inp.value.trim(); if(!text) return; await fetch('/reply',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ type, id, commentId, name: me.name||'匿名', text }) }); inp.value=''; }
-
-async function likeComment(type,id,commentId){ await fetch('/likeComment',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ type, id, commentId, name: me.name||'匿名' }) }); }
-
-async function deleteItem(type,id){ if(!confirm('确认删除？')) return; await fetch('/'+type+'/'+id,{ method:'DELETE' }); alert('已删除'); }
-
-async function deleteComment(type,id,commentId){ if(!confirm('确认删除评论？')) return; await fetch('/comment/'+type+'/'+id+'/'+commentId,{ method:'DELETE' }); alert('评论已删除'); }
-
-async function pin(type,id,pinned){ await fetch('/pin',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ type, id, pinned }) }); alert('已更新置顶'); }
-
-function openModal(kind, src){ el('modal').style.display='flex'; if(kind==='image') el('modalContent').innerHTML = `<img src="${src}" class="max-w-full max-h-[80vh] rounded">`; else el('modalContent').innerHTML = `<video src="${src}" controls autoplay class="max-w-full max-h-[80vh] rounded"></video>`; }
-
-function renderCurrent(){ const active = document.querySelector('.tab.ring'); const tab = active ? active.dataset.tab : 'news'; renderTab(tab); }
-
-function showStats(){
-  if(me.role!=='admin') return alert('仅管理员可查看');
-  fetch('/stats/today').then(r=>r.json()).then(j=>{
-    let html = `<div class="glass p-4"><h3>今日统计 (${j.date})</h3><div>今日登录: ${j.logins}</div><pre class="text-xs text-gray-300 mt-2">${JSON.stringify(j.raw,null,2)}</pre></div>`;
-    el('mainArea').innerHTML = html;
-  });
-}
-
-// helpers: fetch latest data every 2s to keep UI updated
-setInterval(()=>{ fetch('/data').then(r=>r.json()).then(j=>{ dataStore = j; renderCurrent(); }); }, 2000);
-
-</script>
+      if (data.success) {
+        if (data.role === "admin") {
+          alert("欢迎管理员：" + data.name);
+          // TODO: 跳转管理员界面
+        } else {
+          alert("欢迎客户：" + data.name);
+          // TODO: 跳转客户主界面
+        }
+      } else {
+        errorDiv.textContent = data.message || "登录失败";
+      }
+    }
+  </script>
 </body>
 </html>
